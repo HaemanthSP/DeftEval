@@ -22,7 +22,7 @@ def convert(source_files_path, output_path):
     """
     for child in Path(source_files_path).iterdir():
         if child.suffix == '.deft':
-            write_converted(child, Path.joinpath(output_path, child.name))
+            write_converted(child, Path.joinpath(Path(output_path), child.name))
         elif child.is_dir():
             convert(child, output_path)
 
@@ -32,12 +32,14 @@ def write_converted(source_file, output_file):
     """
 
     sentences = pd.DataFrame(columns=['sentence', 'label'])
-    with open(source_file) as source_text:
+    with open(source_file, encoding='utf-8') as source_text:
         has_def = 0
         new_sentence = ''
         for line in source_text.readlines():
 
             if re.match('^\s+$', line) and len(new_sentence) > 0 and not re.match(r'^\s*\d+\s*\.$', new_sentence):
+                # remove sentence ID tokens
+                new_sentence = re.sub(r'^\s*\d+\s*\.', '', new_sentence)
                 sentences = sentences.append({'sentence': new_sentence, 'label': has_def}, ignore_index=True)
                 new_sentence = ''
                 has_def = 0
