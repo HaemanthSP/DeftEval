@@ -10,7 +10,7 @@ from model import baseline
 
 BUFFER_SIZE = 50000
 BATCH_SIZE = 64
-TAKE_SIZE = 5000
+TAKE_SIZE = 1000
 VOCAB_SIZE = None
 
 
@@ -81,12 +81,12 @@ def prepare_data(dataset_path):
     print(next(iter(test_data)))
 
     print("Cardinality:", tf.data.experimental.cardinality(train_data))
-    # train_data = train_data.skip(TAKE_SIZE).shuffle(BUFFER_SIZE)
-    # valid_data = train_data.take(TAKE_SIZE).shuffle(BATCH_SIZE)
+    train_data = train_data.skip(TAKE_SIZE).shuffle(BUFFER_SIZE)
+    valid_data = train_data.take(TAKE_SIZE)
 
     train_data = train_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
-    # valid_data = train_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
-    valid_data = None
+    valid_data = valid_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
+    ## valid_data = None
     test_data = test_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
 
     # Additional one for padding element
@@ -99,12 +99,13 @@ def prepare_data(dataset_path):
 def train(dataset_path):
     train_data, valid_data, test_data = prepare_data(dataset_path)
 
+    print("Loading baseline model")
     model = baseline.create_task1_model(VOCAB_SIZE, 64)
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=['accuracy'])
 
-    model.fit(train_data, epochs=100, validation_data=test_data)
+    model.fit(train_data, epochs=10, validation_data=valid_data)
 
     eval_loss, eval_acc = model.evaluate(test_data)
     print('\nEval loss: {:.3f}, Eval accuracy: {:.3f}'.format(eval_loss, eval_acc))

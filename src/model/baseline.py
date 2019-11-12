@@ -5,7 +5,8 @@ from tensorflow.keras import layers
 def create_task1_model(vocab_size, embedding_dim):
     model = tf.keras.Sequential([
       layers.Embedding(vocab_size, embedding_dim),
-      layers.Bidirectional(layers.LSTM(100)),
+      layers.Bidirectional(layers.LSTM(64)),
+      layers.Dense(100, activation='relu'),
       layers.Dense(50, activation='relu'),
       layers.Dense(1, activation='sigmoid')
       ])
