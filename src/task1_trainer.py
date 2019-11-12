@@ -80,6 +80,10 @@ def prepare_data(dataset_path):
     train_data = raw_train_dataset.map(encode_map_fn)
     print(next(iter(test_data)))
 
+    # Shuffle training data before sampling validation set
+    train_data = train_data.shuffle(BUFFER_SIZE,
+                                    reshuffle_each_iteration=False)
+
     print("Cardinality:", tf.data.experimental.cardinality(train_data))
     train_data = train_data.skip(TAKE_SIZE).shuffle(BUFFER_SIZE)
     valid_data = train_data.take(TAKE_SIZE)
