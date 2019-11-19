@@ -7,6 +7,8 @@ import tensorflow_addons as tfa
 from tensorflow.keras import optimizers, metrics
 import tensorflow as tf
 
+
+import datetime
 from model import baseline
 
 BUFFER_SIZE = 20000
@@ -110,7 +112,13 @@ def train(dataset_path):
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
 
-    model.fit(train_data, epochs=10, validation_data=valid_data)
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+    model.fit(train_data,
+              epochs=10,
+              validation_data=valid_data,
+              callbacks=[tensorboard_callback])
 
     eval_loss, eval_acc = model.evaluate(test_data)
     print('\nEval loss: {:.3f}, Eval accuracy: {:.3f}'.format(eval_loss, eval_acc))
