@@ -5,10 +5,10 @@
 
 Class wise distribution of data:
 
-|       | Positive  | Negative  | Total | Positive% |
+| Dataset | Positive  | Negative  | Total | Positive% |
 |-------|:---------:|:---------:|:-----:|:---------:|
-| dev   | 5569      | 11090     | 16659 |  33.43    | 
-| train | 273       | 537       | 810   |  33.70    |
+| train | 5569      | 11090     | 16659 |  33.43    | 
+| dev | 273       | 537       | 810   |  33.70    |
 
 
 Based on the experiments with the baseline model.
@@ -18,3 +18,7 @@ Based on the experiments with the baseline model.
 
 Experiment:
 -----------
+
+|  Model ref | Model | epochs | Train Loss| Train Accuracy| Valid. loss| Valid. Accuracy| Test loss | Test Accuracy |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|
+| Baseline | Bilstm | 10 | 0.1074 | 95.86% | 0.0910 | 96.4% | 0.733 | 75.3% | 
