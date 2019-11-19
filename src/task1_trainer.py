@@ -3,12 +3,13 @@ import os
 import pandas as pd
 from pathlib import Path
 import tensorflow_datasets as tfds
-from tensorflow.keras import optimizers
+import tensorflow_addons as tfa
+from tensorflow.keras import optimizers, metrics
 import tensorflow as tf
 
 from model import baseline
 
-BUFFER_SIZE = 50000
+BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 TAKE_SIZE = 1000
 VOCAB_SIZE = None
@@ -107,9 +108,10 @@ def train(dataset_path):
     model = baseline.create_task1_model(VOCAB_SIZE, 64)
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
-                  metrics=['accuracy'])
+                  metrics=[metrics.Precision(), metrics.Recall()])
 
     model.fit(train_data, epochs=10, validation_data=valid_data)
 
     eval_loss, eval_acc = model.evaluate(test_data)
     print('\nEval loss: {:.3f}, Eval accuracy: {:.3f}'.format(eval_loss, eval_acc))
+    return model
