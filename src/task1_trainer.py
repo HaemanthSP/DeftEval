@@ -1,12 +1,12 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 import pandas as pd
 from pathlib import Path
 import tensorflow_datasets as tfds
-import tensorflow_addons as tfa
 from tensorflow.keras import optimizers, metrics
 import tensorflow as tf
-
+#import tensorflow_addons as tfa    # this is not available on Windows at the moment
 
 import datetime
 from model import baseline
@@ -15,11 +15,12 @@ BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 TAKE_SIZE = 1000
 VOCAB_SIZE = None
-
+RESAMPLE_TRAIN_AND_DEV_DATA = True      # combines and shuffles the train and dev datasets
 
 # Load dataset
 def load_dataset(dataset_path):
     datasets = None
+    num_instances = 0
     for data_file in Path(dataset_path).iterdir():
         if data_file.suffix == '.deft':
             df = pd.read_table(data_file,
@@ -29,11 +30,12 @@ def load_dataset(dataset_path):
             label = df.pop('label')
             tf_dataset = tf.data.Dataset.from_tensor_slices(
                         (df['sentence'].values, label.values))
+            num_instances += df.shape[0]
             if datasets:
                 datasets = datasets.concatenate(tf_dataset)
             else:
                 datasets = tf_dataset
-    return datasets
+    return (datasets, num_instances)
 
 
 def build_vocabulary(dataset):
@@ -51,9 +53,15 @@ def build_vocabulary(dataset):
 
 
 def prepare_data(dataset_path):
+    raw_train_dataset, _ = load_dataset(os.path.join(dataset_path, 'train'))
+    raw_test_dataset, _ = load_dataset(os.path.join(dataset_path, 'dev'))
 
-    raw_train_dataset = load_dataset(os.path.join(dataset_path, 'train'))
-    raw_test_dataset = load_dataset(os.path.join(dataset_path, 'dev'))
+    if RESAMPLE_TRAIN_AND_DEV_DATA:
+        raw_combined_dataset = raw_train_dataset.concatenate(raw_test_dataset).shuffle(BUFFER_SIZE, reshuffle_each_iteration=False)
+        # we need to preserve the exact metrics of the original dataset for comparability
+        NUM_TRAIN_INSTANCES_ORG = 16659
+        raw_train_dataset = raw_combined_dataset.take(NUM_TRAIN_INSTANCES_ORG)
+        raw_test_dataset = raw_combined_dataset.skip(NUM_TRAIN_INSTANCES_ORG)
 
     # # Shuffle
     raw_train_dataset = raw_train_dataset.shuffle(
@@ -112,7 +120,11 @@ def train(dataset_path):
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
 
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    if os.name == 'nt':
+        log_dir = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "\\"
+    else:
+        log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
     model.fit(train_data,
@@ -120,6 +132,9 @@ def train(dataset_path):
               validation_data=valid_data,
               callbacks=[tensorboard_callback])
 
-    eval_loss, eval_acc = model.evaluate(test_data)
-    print('\nEval loss: {:.3f}, Eval accuracy: {:.3f}'.format(eval_loss, eval_acc))
+    eval_loss, eval_precision, eval_recall = model.evaluate(test_data)
+    print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
     return model
+
+if __name__ == '__main__':
+    train('data/task_1_deft_files/')
