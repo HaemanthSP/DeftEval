@@ -15,7 +15,7 @@ BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 TAKE_SIZE = 1000
 VOCAB_SIZE = None
-RESAMPLE_TRAIN_AND_DEV_DATA = True      # combines and shuffles the train and dev datasets
+RESAMPLE_TRAIN_AND_DEV_DATA = False      # combines and shuffles the train and dev datasets
 
 # Load dataset
 def load_dataset(dataset_path):
@@ -108,11 +108,20 @@ def prepare_data(dataset_path):
     global VOCAB_SIZE
     VOCAB_SIZE = len(vocabulary_set) + 1
 
-    return train_data, valid_data, test_data
+    return train_data, valid_data, test_data, encoder
 
+def print_mispredictions(gold_dataset, predictions, encoder, filepath):
+    mispredictions = []
+    for idx, data in enumerate(gold_dataset):
+        if predictions[idx] > 0.5 and data[1].numpy() != 1:
+            mispredictions.append(encoder.decode(data[0].numpy()))
+
+    with open(filepath, 'w', encoding="utf-8") as f:
+        for i in mispredictions:
+            f.write(i + "\n")
 
 def train(dataset_path):
-    train_data, valid_data, test_data = prepare_data(dataset_path)
+    train_data, valid_data, test_data, encoder = prepare_data(dataset_path)
 
     print("Loading baseline model")
     model = baseline.create_task1_model(VOCAB_SIZE, 64)
@@ -134,7 +143,11 @@ def train(dataset_path):
 
     eval_loss, eval_precision, eval_recall = model.evaluate(test_data)
     print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
+
+    predictions = model.predict(test_data)
+    print_mispredictions(test_data.unbatch(), predictions, encoder, '../data/task_1_deft_files/test_mispredictions.txt')
+
     return model
 
 if __name__ == '__main__':
-    train('data/task_1_deft_files/')
+    train('../data/task_1_deft_files/')
