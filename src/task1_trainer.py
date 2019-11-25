@@ -113,7 +113,7 @@ def prepare_data(dataset_path):
 def print_mispredictions(gold_dataset, predictions, encoder, filepath):
     mispredictions = []
     for idx, data in enumerate(gold_dataset):
-        if predictions[idx] > 0.5 and data[1].numpy() != 1:
+        if (predictions[idx] > 0.5 and data[1].numpy() != 1) or (predictions[idx] < 0.5 and data[1].numpy() != 0):
             mispredictions.append(encoder.decode(data[0].numpy()))
 
     with open(filepath, 'w', encoding="utf-8") as f:
