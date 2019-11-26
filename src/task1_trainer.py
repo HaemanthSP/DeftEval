@@ -92,12 +92,12 @@ def prepare_data(dataset_path):
     print(next(iter(test_data)))
 
     # Shuffle training data before sampling validation set
-    train_data = train_data.shuffle(BUFFER_SIZE,
-                                    reshuffle_each_iteration=False)
+    train_data_temp = train_data.shuffle(BUFFER_SIZE,
+                                         reshuffle_each_iteration=False)
 
     print("Cardinality:", tf.data.experimental.cardinality(train_data))
-    train_data = train_data.skip(TAKE_SIZE).shuffle(BUFFER_SIZE)
-    valid_data = train_data.take(TAKE_SIZE)
+    train_data = train_data_temp.skip(TAKE_SIZE).shuffle(BUFFER_SIZE)
+    valid_data = train_data_temp.take(TAKE_SIZE)
 
     train_data = train_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
     valid_data = valid_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
