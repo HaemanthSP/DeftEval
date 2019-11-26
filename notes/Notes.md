@@ -26,7 +26,7 @@ We also resampled the train and dev datasets by combining and shuffling them tog
 
 ## Experiment:
 
-Attempts to find the hyperparameter for the baseline model that avoids the high bias effect.
+Attempts to find the hyperparameter for the baseline model that avoids the high variance effect.
 
 |  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
 |-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
@@ -45,3 +45,10 @@ Attempts to find the hyperparameter for the baseline model that avoids the high 
 | Baseline_simplified_3 | Bilstm(32) D[20(0.5),1] | 3 | 0.5485 | 0.6908 | 0.3309 | 0.5016 | 0.6923 | 0.4650 | 0.496 | 0.726 | 0.447 |
 
 * Among all the above experiments the baseline with 3 epoch seems better (adding to bechmarking)
+
+
+* Now the model has high bias. Lets increase feature to reduce it.
+* In that line, by looking at the decoded mis-prediction which doesnt seem to contain any punctuation(Which could be critical for certain type of definitions). Tokenizer need attention
+
+Vocab size with filtering: 25427
+Vocab size without filtering: 26121
