@@ -11,7 +11,7 @@ import tensorflow as tf
 #import tensorflow_addons as tfa    # this is not available on Windows at the moment
 
 # Local packages
-from model import baseline
+from model import baseline, experimental
 
 
 # define globals
@@ -66,21 +66,13 @@ def prepare_data(dataset_path):
     raw_train_dataset, _ = load_dataset(os.path.join(dataset_path, 'train'))
     raw_test_dataset, _ = load_dataset(os.path.join(dataset_path, 'dev'))
 
-    # # Shuffle
+    # Shuffle only the training set. Since test set doesnt need to be shuffled.
     raw_train_dataset = raw_train_dataset.shuffle(
                 BUFFER_SIZE, reshuffle_each_iteration=False)
-    raw_test_dataset = raw_test_dataset.shuffle(
-                BUFFER_SIZE, reshuffle_each_iteration=False)
-    # test_dataset
 
     vocabulary_set = build_vocabulary(
             raw_test_dataset.concatenate(raw_train_dataset))
     encoder = tfds.features.text.TokenTextEncoder(vocabulary_set)
-
-    # example_text = next(iter(raw_train_dataset))[0].numpy()
-    # print(example_text)
-    # encoded_example = encoder.encode(example_text)
-    # print(encoded_example)
 
     def encode(text_tensor, label):
         encoded_text = encoder.encode(text_tensor.numpy())
@@ -104,7 +96,6 @@ def prepare_data(dataset_path):
 
     train_data = train_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
     valid_data = valid_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
-    ## valid_data = None
     test_data = test_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
 
     # Additional one for padding element
@@ -129,7 +120,7 @@ def train(dataset_path):
     train_data, valid_data, test_data, encoder = prepare_data(dataset_path)
 
     print("Loading baseline model")
-    model = baseline.create_task1_model(VOCAB_SIZE, 64)
+    model = experimental.simplified_baseline(VOCAB_SIZE, 64)
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
