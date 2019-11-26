@@ -3,12 +3,14 @@ import os
 import datetime
 
 # Third party packages
+import spacy
 import pandas as pd
+import tensorflow as tf
 from pathlib import Path
 import tensorflow_datasets as tfds
 from tensorflow.keras import optimizers, metrics
-import tensorflow as tf
-#import tensorflow_addons as tfa    # this is not available on Windows at the moment
+# import tensorflow_addons as tfa    # this is not available on Windows at the moment
+
 
 # Local packages
 from model import baseline, experimental
@@ -20,6 +22,8 @@ BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 TAKE_SIZE = 1000
 VOCAB_SIZE = None
+SPACY_TOKENS = False
+# NLP = spacy.load("en_core_web_lg")
 
 
 def load_dataset(dataset_path):
@@ -49,12 +53,25 @@ def build_vocabulary(dataset):
     """
     Build vocabulary for encoding.
     """
-    tokenizer = tfds.features.text.Tokenizer()
+
     vocabulary_set = set()
+    if not SPACY_TOKENS:
+        tokenizer = tfds.features.text.Tokenizer()
     for text_tensor, _ in dataset:
-        some_tokens = tokenizer.tokenize(text_tensor.numpy())
+        plain_string = text_tensor.numpy().decode("utf-8")
+        if SPACY_TOKENS:
+            # some_tokens = [x.text
+            #                for x in NLP(plain_string, disable=['parser', 'tagger', 'ner'])
+            #                if x.pos_ not in ['SPACE']]
+            some_tokens = plain_string.split()
+        else:
+            some_tokens = tokenizer.tokenize(text_tensor.numpy())
+
         vocabulary_set.update(some_tokens)
 
+    # Add additional token characterset
+    vocabulary_set.update(
+            ('[', ']', '{', '}', '(', ')', '.', '_', '-', '"', "'", ';', ':', ','))
     print("Vocabulary Size: ", len(vocabulary_set))
     return vocabulary_set
 
@@ -72,6 +89,7 @@ def prepare_data(dataset_path):
 
     vocabulary_set = build_vocabulary(
             raw_test_dataset.concatenate(raw_train_dataset))
+    print("Vocabulary size:", len(vocabulary_set))
     encoder = tfds.features.text.TokenTextEncoder(vocabulary_set)
 
     def encode(text_tensor, label):
