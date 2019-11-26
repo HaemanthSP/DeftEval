@@ -18,7 +18,6 @@ We also resampled the train and dev datasets by combining and shuffling them tog
 ## Experiment:
 
 
-|  Model | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
 |-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
-| Baseline | Bilstm | 10 | 0.0919 | 0.9444 | 0.9491 | 0.0625 | 0.9727 | 0.9582 | 0.855 | 0.654 | 0.623 | 
-| Baseline (Resampled) | Bilstm | 10 | 0.0973 | 0.9418 | 0.9463 | 0.0836 | 0.9216 | 0.9855 | 0.966 | 0.591 | 0.651 | 
+| Baseline | Bilstm | 10 | 0.0884 | 0.9475 | 0.9496 | 0.9385 | 0.5765 | 0.5784 | 0.8599 | 0.6971 | 0.6154 |
