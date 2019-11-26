@@ -1,6 +1,8 @@
+# Built in packages
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+import datetime
 
+# Third party packages
 import pandas as pd
 from pathlib import Path
 import tensorflow_datasets as tfds
@@ -8,17 +10,22 @@ from tensorflow.keras import optimizers, metrics
 import tensorflow as tf
 #import tensorflow_addons as tfa    # this is not available on Windows at the moment
 
-import datetime
+# Local packages
 from model import baseline
 
+
+# define globals
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # FIXME: Should this be set before imports?
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 TAKE_SIZE = 1000
 VOCAB_SIZE = None
-RESAMPLE_TRAIN_AND_DEV_DATA = False      # combines and shuffles the train and dev datasets
 
-# Load dataset
+
 def load_dataset(dataset_path):
+    """
+    Load dataset from the files into a tensorflow dataset instance.
+    """
     datasets = None
     num_instances = 0
     for data_file in Path(dataset_path).iterdir():
@@ -53,15 +60,11 @@ def build_vocabulary(dataset):
 
 
 def prepare_data(dataset_path):
+    """
+    Prepare the raw dataset into encoded train, validation and test sets.
+    """
     raw_train_dataset, _ = load_dataset(os.path.join(dataset_path, 'train'))
     raw_test_dataset, _ = load_dataset(os.path.join(dataset_path, 'dev'))
-
-    if RESAMPLE_TRAIN_AND_DEV_DATA:
-        raw_combined_dataset = raw_train_dataset.concatenate(raw_test_dataset).shuffle(BUFFER_SIZE, reshuffle_each_iteration=False)
-        # we need to preserve the exact metrics of the original dataset for comparability
-        NUM_TRAIN_INSTANCES_ORG = 16659
-        raw_train_dataset = raw_combined_dataset.take(NUM_TRAIN_INSTANCES_ORG)
-        raw_test_dataset = raw_combined_dataset.skip(NUM_TRAIN_INSTANCES_ORG)
 
     # # Shuffle
     raw_train_dataset = raw_train_dataset.shuffle(
@@ -110,6 +113,7 @@ def prepare_data(dataset_path):
 
     return train_data, valid_data, test_data, encoder
 
+
 def print_mispredictions(gold_dataset, predictions, encoder, filepath):
     mispredictions = []
     for idx, data in enumerate(gold_dataset):
@@ -119,6 +123,7 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
     with open(filepath, 'w', encoding="utf-8") as f:
         for i in mispredictions:
             f.write(i + "\n")
+
 
 def train(dataset_path):
     train_data, valid_data, test_data, encoder = prepare_data(dataset_path)
@@ -134,7 +139,8 @@ def train(dataset_path):
     else:
         log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(
+            log_dir=log_dir, histogram_freq=1)
 
     model.fit(train_data,
               epochs=10,
@@ -145,9 +151,11 @@ def train(dataset_path):
     print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
 
     predictions = model.predict(test_data)
-    print_mispredictions(test_data.unbatch(), predictions, encoder, '../data/task_1_deft_files/test_mispredictions.txt')
+    print_mispredictions(test_data.unbatch(), predictions, encoder,
+                         '../data/task_1_deft_files/test_mispredictions.txt')
 
     return model
+
 
 if __name__ == '__main__':
     train('../data/task_1_deft_files/')
