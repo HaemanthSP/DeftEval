@@ -134,7 +134,7 @@ def train(dataset_path):
             log_dir=log_dir, histogram_freq=1)
 
     model.fit(train_data,
-              epochs=10,
+              epochs=3,
               validation_data=valid_data,
               callbacks=[tensorboard_callback])
 

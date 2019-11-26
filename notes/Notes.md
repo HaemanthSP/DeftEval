@@ -20,6 +20,7 @@ We also resampled the train and dev datasets by combining and shuffling them tog
 |  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
 |-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
 | Baseline | Bilstm(64) D[100,50,1] | 10 | 0.0884 | 0.9475 | 0.9496 | 0.9385 | 0.5765 | 0.5784 | 0.8599 | 0.6971 | 0.6154 |
+| Baseline | Bilstm(64) D[100,50,1] | 03 | 0.4139 | 0.7518 | 0.6407 | 0.4771 | 0.6997 | 0.6235 | 0.4500 | 0.6960 | 0.6560 |
 
 
 
@@ -35,3 +36,12 @@ Attempts to find the hyperparameter for the baseline model that avoids the high 
 | Baseline_simplified_3 | Bilstm(32) D[20(0.5),1] | 10 | 0.1963 | 0.9012 | 0.9158 | 0.7034 | 0.6444 | 0.5512 | 0.620 | 0.717 | 0.586 |
 
 * After analyzing the plots for above experiments. After Epoch 3 the model starts overfitting. 
+
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
+| Baseline | Bilstm(64) D[100,50,1] | 3 | 0.4139 | 0.7518 | 0.6407 | 0.4771 | 0.6997 | 0.6235 | 0.450 | 0.696 | 0.656 |
+| Baseline_simplified_1 | Bilstm(64) D[50,1] | 3 | 0.4432 | 0.7295 | 0.5925 | 0.4913 | 0.6825 | 0.5436 | 0.452 | 0.714 | 0.557 |
+| Baseline_simplified_2 | Bilstm(32) D[20,1] | 3 | 0.4840 | 0.7281 | 0.4834 | 0.4819 | 0.6456 | 0.5 | 0.4582 | 0.7360 | 0.5311 |
+| Baseline_simplified_3 | Bilstm(32) D[20(0.5),1] | 3 | 0.5485 | 0.6908 | 0.3309 | 0.5016 | 0.6923 | 0.4650 | 0.496 | 0.726 | 0.447 |
+
+* Among all the above experiments the baseline with 3 epoch seems better (adding to bechmarking)
