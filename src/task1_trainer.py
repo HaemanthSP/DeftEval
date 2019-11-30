@@ -28,27 +28,23 @@ TAKE_SIZE = 1000
 VOCAB_SIZE = None
 
 
-
-def load_dataset(dataset_path, primitive_type):
-    """
-    Load dataset from the files into a tensorflow dataset instance.
-    """
-    print("Loading dataset")
-    dataset = corpus.load_files_into_dataset(dataset_path)
-    print("Transforming dataset")
-    tf_dataset, vocabulary_set = transform.tf_dataset_for_subtask_1(dataset, primitive_type)
-
-    print("Vocabulary Size: ", len(vocabulary_set))
-    return tf_dataset, vocabulary_set
-
-
 def prepare_data(dataset_path, primitive_type):
     """
     Prepare the raw dataset into encoded train, validation and test sets.
     """
-    raw_train_dataset, train_vocab = load_dataset(os.path.join(dataset_path, 'train'), primitive_type)
-    raw_test_dataset, test_vocab = load_dataset(os.path.join(dataset_path, 'dev'), primitive_type)
+    print("Loading dataset")
+    raw_train_dataset = corpus.load_files_into_dataset(os.path.join(dataset_path, 'train'))
+    raw_test_dataset = corpus.load_files_into_dataset(os.path.join(dataset_path, 'dev'))
+
+    print("Transforming dataset")
+    max_sent_len = max(raw_train_dataset.max_sent_len,
+                       raw_test_dataset.max_sent_len)
+    raw_train_dataset, train_vocab = transform.tf_dataset_for_subtask_1(raw_train_dataset,
+                                                                        primitive_type, max_sent_len)
+    raw_test_dataset, test_vocab = transform.tf_dataset_for_subtask_1(raw_test_dataset,
+                                                                      primitive_type, max_sent_len)
     combined_vocab = train_vocab.union(test_vocab)
+    print("Vocabulary Size: ", len(combined_vocab))
 
     # Shuffle only the training set. Since test set doesnt need to be shuffled.
     raw_train_dataset = raw_train_dataset.shuffle(
@@ -116,8 +112,9 @@ def train(dataset_path):
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
             log_dir=log_dir, histogram_freq=1)
 
+    print("Training model")
     model.fit(train_data,
-              epochs=3,
+              epochs=10,
               validation_data=valid_data,
               callbacks=[tensorboard_callback])
 

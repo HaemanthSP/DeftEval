@@ -13,7 +13,7 @@ class InputPrimitive(Enum):
 spacy.prefer_gpu()
 NLP = spacy.load("en_core_web_lg")
 
-def tf_dataset_for_subtask_1(dataset, input_primitive):
+def tf_dataset_for_subtask_1(dataset, input_primitive, max_sent_len):
     x = []
     y = []
     vocabulary_set = set()
@@ -28,12 +28,15 @@ def tf_dataset_for_subtask_1(dataset, input_primitive):
 
                 label = 0
                 for token in sent.tokens:
-                    if token.tag[3:] == 'Definition':
+                    if token.tag[2:] == 'Definition':
                         label = 1
                         break
 
-                x.append(np.array(tokens))
+                np_arr = np.pad(np.asarray(tokens), [(0, max_sent_len - len(tokens))], constant_values='')
+                x.append(np_arr)
                 y.append(label)
                 vocabulary_set.update(tokens)
 
-    return tf.data.Dataset.from_tensor_slices((np.array(x), np.array(y))), vocabulary_set
+    x = np.asarray(x)
+    y = np.asarray(y)
+    return tf.data.Dataset.from_tensor_slices((x, y)), vocabulary_set

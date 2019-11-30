@@ -76,6 +76,7 @@ class Dataset:
     """
     def __init__(self):
         self.files = []
+        self.max_sent_len = 0
 
     def add_file(self, file):
         self.files.append(file)
@@ -174,6 +175,7 @@ def load_files_into_dataset(dataset_path):
                                 print("Extra sentence on line %d in file %s" % (current_line_no, str(data_file)))
 
                             if current_sentence.len() != 0:
+                                dataset.max_sent_len = max(dataset.max_sent_len, current_sentence.len())
                                 current_context.add_sentence(current_sentence)
 
                                 if current_sentence.len() < 3 and LOG_WARNINGS:
@@ -198,6 +200,7 @@ def load_files_into_dataset(dataset_path):
                         current_sentence.add_token(splits)
 
                 if current_sentence.len() > 0:
+                    dataset.max_sent_len = max(dataset.max_sent_len, current_sentence.len())
                     current_context.add_sentence(current_sentence)
 
                 current_file.add_context(current_context)
