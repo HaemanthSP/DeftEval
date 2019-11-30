@@ -24,7 +24,7 @@ def tf_dataset_for_subtask_1(dataset, input_primitive):
                 if input_primitive == InputPrimitive.TOKEN:
                     tokens = [x.token.lower() for x in sent.tokens]
                 elif input_primitive == InputPrimitive.POS:
-                    tokens = [x.tag for x in NLP(' '.join(sent.tokens.token), disable=['parser', 'ner'])]
+                    tokens = [x.tag for x in NLP(' '.join([x.token for x in sent.tokens]), disable=['parser', 'ner'])]
 
                 label = 0
                 for token in sent.tokens:
