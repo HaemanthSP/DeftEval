@@ -1,10 +1,13 @@
 # Built in packages
 import os
 import datetime
+from enum import Enum
 
 # Third party packages
+from tqdm import tqdm
 import spacy
 import pandas as pd
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 from pathlib import Path
 import tensorflow_datasets as tfds
@@ -14,91 +17,52 @@ from tensorflow.keras import optimizers, metrics
 
 # Local packages
 from model import baseline, experimental
+from features import corpus, transform
+from util.numberer import Numberer
 
 
 # define globals
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # FIXME: Should this be set before imports?
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 TAKE_SIZE = 1000
 VOCAB_SIZE = None
-SPACY_TOKENS = False
-# NLP = spacy.load("en_core_web_lg")
 
 
-def load_dataset(dataset_path):
+
+def load_dataset(dataset_path, primitive_type):
     """
     Load dataset from the files into a tensorflow dataset instance.
     """
-    datasets = None
-    num_instances = 0
-    for data_file in Path(dataset_path).iterdir():
-        if data_file.suffix == '.deft':
-            df = pd.read_table(data_file,
-                               header=None,
-                               names=['sentence', 'label'])
-            df['sentence'] = df['sentence'].values.astype(str)
-            label = df.pop('label')
-            tf_dataset = tf.data.Dataset.from_tensor_slices(
-                        (df['sentence'].values, label.values))
-            num_instances += df.shape[0]
-            if datasets:
-                datasets = datasets.concatenate(tf_dataset)
-            else:
-                datasets = tf_dataset
-    return (datasets, num_instances)
+    print("Loading dataset")
+    dataset = corpus.load_files_into_dataset(dataset_path)
+    print("Transforming dataset")
+    tf_dataset, vocabulary_set = transform.tf_dataset_for_subtask_1(dataset, primitive_type)
 
-
-def build_vocabulary(dataset):
-    """
-    Build vocabulary for encoding.
-    """
-
-    vocabulary_set = set()
-    if not SPACY_TOKENS:
-        tokenizer = tfds.features.text.Tokenizer()
-    for text_tensor, _ in dataset:
-        plain_string = text_tensor.numpy().decode("utf-8")
-        if SPACY_TOKENS:
-            # some_tokens = [x.text
-            #                for x in NLP(plain_string, disable=['parser', 'tagger', 'ner'])
-            #                if x.pos_ not in ['SPACE']]
-            some_tokens = plain_string.split()
-        else:
-            some_tokens = tokenizer.tokenize(text_tensor.numpy())
-
-        vocabulary_set.update(some_tokens)
-
-    # Add additional token characterset
-    vocabulary_set.update(
-            ('[', ']', '{', '}', '(', ')', '.', '_', '-', '"', "'", ';', ':', ','))
     print("Vocabulary Size: ", len(vocabulary_set))
-    return vocabulary_set
+    return tf_dataset, vocabulary_set
 
 
-def prepare_data(dataset_path):
+def prepare_data(dataset_path, primitive_type):
     """
     Prepare the raw dataset into encoded train, validation and test sets.
     """
-    raw_train_dataset, _ = load_dataset(os.path.join(dataset_path, 'train'))
-    raw_test_dataset, _ = load_dataset(os.path.join(dataset_path, 'dev'))
+    raw_train_dataset, train_vocab = load_dataset(os.path.join(dataset_path, 'train'), primitive_type)
+    raw_test_dataset, test_vocab = load_dataset(os.path.join(dataset_path, 'dev'), primitive_type)
+    combined_vocab = train_vocab.union(test_vocab)
 
     # Shuffle only the training set. Since test set doesnt need to be shuffled.
     raw_train_dataset = raw_train_dataset.shuffle(
                 BUFFER_SIZE, reshuffle_each_iteration=False)
 
-    vocabulary_set = build_vocabulary(
-            raw_test_dataset.concatenate(raw_train_dataset))
-    print("Vocabulary size:", len(vocabulary_set))
-    encoder = tfds.features.text.TokenTextEncoder(vocabulary_set)
+    encoder = Numberer(combined_vocab)
 
-    def encode(text_tensor, label):
-        encoded_text = encoder.encode(text_tensor.numpy())
-        return encoded_text, label
+    def encode_map_fn(features, label):
+        def inner(features, label):
+            encoded_features = [encoder.number(x) for x in features]
+            return encoded_features, label
 
-    def encode_map_fn(text, label):
         return tf.py_function(
-                encode, inp=[text, label], Tout=(tf.int64, tf.int64))
+                inner, inp=[features, label], Tout=(tf.int64, tf.int64))
 
     test_data = raw_test_dataset.map(encode_map_fn)
     train_data = raw_train_dataset.map(encode_map_fn)
@@ -118,7 +82,7 @@ def prepare_data(dataset_path):
 
     # Additional one for padding element
     global VOCAB_SIZE
-    VOCAB_SIZE = len(vocabulary_set) + 1
+    VOCAB_SIZE = len(combined_vocab) + 1
 
     return train_data, valid_data, test_data, encoder
 
@@ -135,9 +99,10 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
 
 
 def train(dataset_path):
-    train_data, valid_data, test_data, encoder = prepare_data(dataset_path)
+    print("Preparing data")
+    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, transform.InputPrimitive.TOKEN)
 
-    print("Loading baseline model")
+    print("Loading model")
     model = experimental.simplified_baseline(VOCAB_SIZE, 64)
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
@@ -161,10 +126,10 @@ def train(dataset_path):
 
     predictions = model.predict(test_data)
     print_mispredictions(test_data.unbatch(), predictions, encoder,
-                         '../data/task_1_deft_files/test_mispredictions.txt')
+                         '../deft_corpus/data/task_1_test_mispredictions.txt')
 
     return model
 
 
 if __name__ == '__main__':
-    train('../data/task_1_deft_files/')
+    train('../deft_corpus/data/deft_files/')
