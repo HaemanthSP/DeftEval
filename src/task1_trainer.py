@@ -57,7 +57,8 @@ def prepare_data(dataset_path, primitive_type):
 
     def encode_map_fn(features, label):
         def inner(features, label):
-            encoded_features = [encoder.number(x) for x in features.numpy().split()]
+            features = features.numpy().decode("utf-8").split()
+            encoded_features = [encoder.number(x) for x in features]
             return encoded_features, label
 
         return tf.py_function(

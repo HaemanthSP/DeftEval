@@ -5,9 +5,9 @@ class Numberer:
         self.INVALID_NUMBER = 0
 
         for item in vocabulary:
-            _ = self.number(item)
+            _ = self.number(item, add_if_absent=True)
 
-    def number(self, value, add_if_absent=True):
+    def number(self, value, add_if_absent=False):
         n = self.v2n.get(value)
 
         if n is None:
