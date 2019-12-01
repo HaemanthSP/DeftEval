@@ -10,12 +10,13 @@ class Numberer:
     def number(self, value, add_if_absent=True):
         n = self.v2n.get(value)
 
-        if n is None and add_if_absent:
-            n = len(self.n2v)
-            self.v2n[value] = n
-            self.n2v.append(value)
-        else:
-            n = self.INVALID_NUMBER
+        if n is None:
+            if add_if_absent:
+                n = len(self.n2v)
+                self.v2n[value] = n
+                self.n2v.append(value)
+            else:
+                n = self.INVALID_NUMBER
 
         return n
 
