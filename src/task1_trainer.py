@@ -7,6 +7,7 @@ from enum import Enum
 from tqdm import tqdm
 import spacy
 import pandas as pd
+import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 from pathlib import Path
@@ -44,6 +45,8 @@ def prepare_data(dataset_path, primitive_type):
     raw_test_dataset, test_vocab = transform.tf_dataset_for_subtask_1(raw_test_dataset,
                                                                       primitive_type, max_sent_len)
     combined_vocab = train_vocab.union(test_vocab)
+    print("Train vocab Size: ", len(train_vocab))
+    print("Test vocab Size: ", len(test_vocab))
     print("Vocabulary Size: ", len(combined_vocab))
 
     # Shuffle only the training set. Since test set doesnt need to be shuffled.
@@ -54,11 +57,11 @@ def prepare_data(dataset_path, primitive_type):
 
     def encode_map_fn(features, label):
         def inner(features, label):
-            encoded_features = [encoder.number(x) for x in features]
+            encoded_features = [encoder.number(x) for x in features.numpy()]
             return encoded_features, label
 
         return tf.py_function(
-                inner, inp=[features, label], Tout=(tf.int64, tf.int64))
+                inner, inp=[features, label], Tout=(tf.int32, tf.int8))
 
     test_data = raw_test_dataset.map(encode_map_fn)
     train_data = raw_train_dataset.map(encode_map_fn)

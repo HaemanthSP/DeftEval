@@ -38,5 +38,5 @@ def tf_dataset_for_subtask_1(dataset, input_primitive, max_sent_len):
                 vocabulary_set.update(tokens)
 
     x = np.asarray(x)
-    y = np.asarray(y)
+    y = np.asarray(y, dtype=np.int8)
     return tf.data.Dataset.from_tensor_slices((x, y)), vocabulary_set
