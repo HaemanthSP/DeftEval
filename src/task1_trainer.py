@@ -57,6 +57,8 @@ def prepare_data(dataset_path, primitive_type):
 
     def encode_map_fn(features, label):
         def inner(features, label):
+            # Decode byte to string before indexing as the encoder looks for
+            # string values as input
             features = features.numpy().decode("utf-8").split()
             encoded_features = [encoder.number(x) for x in features]
             return encoded_features, label
