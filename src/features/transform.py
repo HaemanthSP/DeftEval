@@ -2,8 +2,8 @@ from enum import Enum
 from tqdm import tqdm
 import spacy
 import tensorflow as tf
-import tensorflow_datasets as tfds
 import numpy as np
+import pandas as pd
 
 class InputPrimitive(Enum):
     TOKEN = 1,
@@ -22,9 +22,9 @@ def tf_dataset_for_subtask_1(dataset, input_primitive, max_sent_len):
         for context in file.contexts:
             for sent in context.sentences:
                 if input_primitive == InputPrimitive.TOKEN:
-                    tokens = [x.token.lower() for x in sent.tokens]
+                    tokens = [ele.token.lower() for ele in sent.tokens]
                 elif input_primitive == InputPrimitive.POS:
-                    tokens = [x.tag for x in NLP(' '.join([x.token for x in sent.tokens]), disable=['parser', 'ner'])]
+                    tokens = [t.tag for t in NLP(' '.join([ele.token for ele in sent.tokens]), disable=['parser', 'ner'])]
 
                 label = 0
                 for token in sent.tokens:
