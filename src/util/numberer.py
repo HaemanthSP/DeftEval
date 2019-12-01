@@ -2,7 +2,7 @@ class Numberer:
     def __init__(self, vocabulary):
         self.v2n = dict()
         self.n2v = list()
-        self.INVALID_NUMBER = -1
+        self.INVALID_NUMBER = 0
 
         for item in vocabulary:
             _ = self.number(item)
@@ -12,7 +12,7 @@ class Numberer:
 
         if n is None:
             if add_if_absent:
-                n = len(self.n2v)
+                n = len(self.n2v) + 1
                 self.v2n[value] = n
                 self.n2v.append(value)
             else:
@@ -22,7 +22,7 @@ class Numberer:
 
     def value(self, number):
         assert number > self.INVALID_NUMBER
-        return self.n2v[number]
+        return self.n2v[number - 1]
 
     def max_number(self):
         return len(self.n2v)
