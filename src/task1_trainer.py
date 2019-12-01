@@ -57,7 +57,7 @@ def prepare_data(dataset_path, primitive_type):
 
     def encode_map_fn(features, label):
         def inner(features, label):
-            encoded_features = [encoder.number(x) for x in features.numpy()]
+            encoded_features = [encoder.number(x) for x in features.numpy().split()]
             return encoded_features, label
 
         return tf.py_function(
@@ -65,7 +65,9 @@ def prepare_data(dataset_path, primitive_type):
 
     test_data = raw_test_dataset.map(encode_map_fn)
     train_data = raw_train_dataset.map(encode_map_fn)
+    print(next(iter(raw_test_dataset)))
     print(next(iter(test_data)))
+    print(next(iter(train_data)))
 
     # Shuffle training data before sampling validation set
     train_data_temp = train_data.shuffle(BUFFER_SIZE,

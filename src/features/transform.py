@@ -31,9 +31,7 @@ def tf_dataset_for_subtask_1(dataset, input_primitive, max_sent_len):
                     if token.tag[2:] == 'Definition':
                         label = 1
                         break
-
-                np_arr = np.pad(np.asarray(tokens), [(0, max_sent_len - len(tokens))], constant_values='')
-                x.append(np_arr)
+                x.append(' '.join(tokens))
                 y.append(label)
                 vocabulary_set.update(tokens)
 
