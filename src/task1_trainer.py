@@ -72,7 +72,7 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
     mispredictions = []
     for idx, data in enumerate(gold_dataset):
         if (predictions[idx] > 0.5 and data[1].numpy() != 1) or (predictions[idx] < 0.5 and data[1].numpy() != 0):
-            tokens = [encoder.value(feat) for feat in data[0].numpy().tolist()]
+            tokens = [encoder.value(feat) if feat != 0 else '' for feat in data[0].numpy().tolist()]
             mispredictions.append(' '.join(tokens))
 
     with open(filepath, 'w', encoding="utf-8") as f:
@@ -100,7 +100,7 @@ def train(dataset_path):
 
     print("Training model")
     model.fit(train_data,
-              epochs=50,
+              epochs=10,
               validation_data=valid_data,
               callbacks=[tensorboard_callback])
 
@@ -109,7 +109,7 @@ def train(dataset_path):
 
     predictions = model.predict(test_data)
     print_mispredictions(test_data.unbatch(), predictions, encoder,
-                         '../deft_corpus/data/task_1_test_mispredictions.txt')
+                         'logs/task_1_test_mispredictions.txt')
 
     return model
 
