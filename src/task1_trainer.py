@@ -9,11 +9,9 @@ import spacy
 import pandas as pd
 import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+#os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
 import tensorflow as tf
 from pathlib import Path
-import tensorflow_datasets as tfds
 from tensorflow.keras import optimizers, metrics
 # import tensorflow_addons as tfa    # this is not available on Windows at the moment
 
@@ -46,17 +44,6 @@ def prepare_data(dataset_path, primitive_type):
     train_data = train_data.shuffle(
                 BUFFER_SIZE, reshuffle_each_iteration=False)
 
-    # Convert the concatented feature string to individual features
-    def encode_map_fn(features, label):
-        def inner(features, label):
-            return [int(feat) for feat in features.numpy().decode("utf-8").split()], label
-
-        return tf.py_function(
-                inner, inp=[features, label], Tout=(tf.int32, tf.int8))
-
-    train_data = train_data.map(encode_map_fn)
-    test_data = test_data.map(encode_map_fn)
-
     print("Train data sample:")
     print(next(iter(train_data)))
     print("Test data sample:")
@@ -85,7 +72,8 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
     mispredictions = []
     for idx, data in enumerate(gold_dataset):
         if (predictions[idx] > 0.5 and data[1].numpy() != 1) or (predictions[idx] < 0.5 and data[1].numpy() != 0):
-            mispredictions.append(encoder.decode(data[0].numpy()))
+            tokens = [encoder.value(feat) for feat in data[0].numpy().tolist()]
+            mispredictions.append(' '.join(tokens))
 
     with open(filepath, 'w', encoding="utf-8") as f:
         for i in mispredictions:
@@ -94,7 +82,7 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
 
 def train(dataset_path):
     print("Preparing data")
-    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, transform.InputPrimitive.TOKEN)
+    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, transform.InputPrimitive.POS)
 
     print("Loading model")
     model = experimental.simplified_baseline(VOCAB_SIZE, 64)
@@ -112,7 +100,7 @@ def train(dataset_path):
 
     print("Training model")
     model.fit(train_data,
-              epochs=10,
+              epochs=50,
               validation_data=valid_data,
               callbacks=[tensorboard_callback])
 

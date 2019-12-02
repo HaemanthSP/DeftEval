@@ -10,8 +10,7 @@ class InputPrimitive(Enum):
     TOKEN = 1,
     POS = 2,
 
-
-#spacy.prefer_gpu()
+spacy.prefer_gpu()
 NLP = spacy.load("en_core_web_lg")
 
 def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
@@ -33,15 +32,13 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
                     y.append(label)
                     vocabulary_set.update(tokens)
 
-    def encode_primitives(x, encoder):
+    def encode_primitives(x, encoder, shape):
         for row_idx, row in enumerate(tqdm(x)):
+            new_feature_array = np.zeros(shape, dtype=np.int32)
             for primitive_idx, primitive in enumerate(row):
-                row[primitive_idx] = str(encoder.number(primitive))
+                new_feature_array[primitive_idx] = encoder.number(primitive)
 
-            # store the encoded primitives as a byte string to keep the tensor length fixed
-            # individual features can be extracted using a map operation on the generated tf.data.Dataset object
-            # the alternative would be to pad it to the maximum sentence length in advance
-            x[row_idx] = ' '.join(x[row_idx])
+            x[row_idx] = new_feature_array
 
     x_train = []
     y_train = []
@@ -55,8 +52,9 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
 
     print("Encoding primitives")
     encoder = Numberer(combined_vocab)
-    encode_primitives(x_train, encoder)
-    encode_primitives(x_test, encoder)
+    feature_vector_shape = [max(train_dataset.max_sent_len, test_dataset.max_sent_len)]
+    encode_primitives(x_train, encoder, feature_vector_shape)
+    encode_primitives(x_test, encoder, feature_vector_shape)
 
     x_train = np.asarray(x_train)
     y_train = np.asarray(y_train, dtype=np.int8)
