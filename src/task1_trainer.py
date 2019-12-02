@@ -109,7 +109,7 @@ def train(dataset_path):
 
     predictions = model.predict(test_data)
     print_mispredictions(test_data.unbatch(), predictions, encoder,
-                         'logs/task_1_test_mispredictions.txt')
+                         'logs/subtask_1_test_mispredictions.txt')
 
     return model
 
