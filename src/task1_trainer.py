@@ -9,6 +9,8 @@ import spacy
 import pandas as pd
 import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
 import tensorflow as tf
 from pathlib import Path
 import tensorflow_datasets as tfds
@@ -19,7 +21,6 @@ from tensorflow.keras import optimizers, metrics
 # Local packages
 from model import baseline, experimental
 from features import corpus, transform
-from util.numberer import Numberer
 
 
 # define globals
@@ -38,39 +39,28 @@ def prepare_data(dataset_path, primitive_type):
     raw_test_dataset = corpus.load_files_into_dataset(os.path.join(dataset_path, 'dev'))
 
     print("Transforming dataset")
-    max_sent_len = max(raw_train_dataset.max_sent_len,
-                       raw_test_dataset.max_sent_len)
-    raw_train_dataset, train_vocab = transform.tf_dataset_for_subtask_1(raw_train_dataset,
-                                                                        primitive_type, max_sent_len)
-    raw_test_dataset, test_vocab = transform.tf_dataset_for_subtask_1(raw_test_dataset,
-                                                                      primitive_type, max_sent_len)
-    combined_vocab = train_vocab.union(test_vocab)
-    print("Train vocab Size: ", len(train_vocab))
-    print("Test vocab Size: ", len(test_vocab))
-    print("Vocabulary Size: ", len(combined_vocab))
+    train_data, test_data, vocab, encoder = transform.tf_datasets_for_subtask_1(raw_train_dataset, raw_test_dataset, primitive_type)
+    print("Vocabulary Size: ", len(vocab))
 
     # Shuffle only the training set. Since test set doesnt need to be shuffled.
-    raw_train_dataset = raw_train_dataset.shuffle(
+    train_data = train_data.shuffle(
                 BUFFER_SIZE, reshuffle_each_iteration=False)
 
-    encoder = Numberer(combined_vocab)
-
+    # Convert the concatented feature string to individual features
     def encode_map_fn(features, label):
         def inner(features, label):
-            # Decode byte to string before indexing as the encoder looks for
-            # string values as input
-            features = features.numpy().decode("utf-8").split()
-            encoded_features = [encoder.number(x) for x in features]
-            return encoded_features, label
+            return [int(feat) for feat in features.numpy().decode("utf-8").split()], label
 
         return tf.py_function(
                 inner, inp=[features, label], Tout=(tf.int32, tf.int8))
 
-    test_data = raw_test_dataset.map(encode_map_fn)
-    train_data = raw_train_dataset.map(encode_map_fn)
-    print(next(iter(raw_test_dataset)))
-    print(next(iter(test_data)))
+    train_data = train_data.map(encode_map_fn)
+    test_data = test_data.map(encode_map_fn)
+
+    print("Train data sample:")
     print(next(iter(train_data)))
+    print("Test data sample:")
+    print(next(iter(test_data)))
 
     # Shuffle training data before sampling validation set
     train_data_temp = train_data.shuffle(BUFFER_SIZE,
@@ -86,7 +76,7 @@ def prepare_data(dataset_path, primitive_type):
 
     # Additional one for padding element
     global VOCAB_SIZE
-    VOCAB_SIZE = len(combined_vocab) + 1
+    VOCAB_SIZE = len(vocab) + 1
 
     return train_data, valid_data, test_data, encoder
 
