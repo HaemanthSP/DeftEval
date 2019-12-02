@@ -12,6 +12,7 @@ class InputPrimitive(Enum):
 
 spacy.prefer_gpu()
 NLP = spacy.load("en_core_web_lg")
+PAD_FEATURE_VECTORS = True
 
 def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
     def generate_primitives_and_vocabulary(dataset, input_primitive, x, y, vocabulary_set):
@@ -32,13 +33,23 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
                     y.append(label)
                     vocabulary_set.update(tokens)
 
-    def encode_primitives(x, encoder, shape):
-        for row_idx, row in enumerate(tqdm(x)):
-            new_feature_array = np.zeros(shape, dtype=np.int32)
-            for primitive_idx, primitive in enumerate(row):
-                new_feature_array[primitive_idx] = encoder.number(primitive)
 
-            x[row_idx] = new_feature_array
+    def encode_primitives(x, encoder, shape):
+        # store the encoded primitives as a byte string to keep the tensor length fixed
+        # individual features can be extracted using a map operation on the generated tf.data.Dataset object
+        # the alternative would be to pad it to the maximum sentence length in advance
+        for row_idx, row in enumerate(tqdm(x)):
+            if PAD_FEATURE_VECTORS:
+                new_feature_array = np.zeros(shape, dtype=np.int32)
+
+            for primitive_idx, primitive in enumerate(row):
+                if PAD_FEATURE_VECTORS:
+                    new_feature_array[primitive_idx] = encoder.number(primitive)
+                else:
+                    row[primitive_idx] = str(encoder.number(primitive))
+
+            x[row_idx] = new_feature_array if PAD_FEATURE_VECTORS else ' '.join(row)
+
 
     x_train = []
     y_train = []
@@ -60,4 +71,21 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
     y_train = np.asarray(y_train, dtype=np.int8)
     x_test = np.asarray(x_test)
     y_test = np.asarray(y_test, dtype=np.int8)
-    return tf.data.Dataset.from_tensor_slices((x_train, y_train)), tf.data.Dataset.from_tensor_slices((x_test, y_test)), combined_vocab, encoder
+
+    train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+    test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
+
+    if not PAD_FEATURE_VECTORS:
+        # Convert the concatented feature string to individual features
+        def encode_map_fn(features, label):
+            def inner(features, label):
+                return [int(feat) for feat in features.numpy().decode("utf-8").split()], label
+
+            return tf.py_function(
+                inner, inp=[features, label], Tout=(tf.int32, tf.int8))
+
+
+        train_dataset = train_dataset.map(encode_map_fn)
+        test_dataset = test_dataset.map(encode_map_fn)
+
+    return train_dataset, test_dataset, combined_vocab, encoder
