@@ -13,7 +13,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 from pathlib import Path
 from tensorflow.keras import optimizers, metrics
-# import tensorflow_addons as tfa    # this is not available on Windows at the moment
 
 
 # Local packages
@@ -89,6 +88,7 @@ def train(dataset_path):
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
+    model.summary()
 
     if os.name == 'nt':
         log_dir = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "\\"
