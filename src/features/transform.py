@@ -6,13 +6,15 @@ import numpy as np
 import pandas as pd
 from util.numberer import Numberer
 
+spacy.prefer_gpu()
+NLP = spacy.load("en_core_web_lg")
+PAD_FEATURE_VECTORS = True
+
+
 class InputPrimitive(Enum):
     TOKEN = 1,
     POS = 2,
 
-spacy.prefer_gpu()
-NLP = spacy.load("en_core_web_lg")
-PAD_FEATURE_VECTORS = True
 
 def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
     def generate_primitives_and_vocabulary(dataset, input_primitive, x, y, vocabulary_set):
@@ -33,7 +35,6 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
                     y.append(label)
                     vocabulary_set.update(tokens)
 
-
     def encode_primitives(x, encoder, shape):
         # store the encoded primitives as a byte string to keep the tensor length fixed
         # individual features can be extracted using a map operation on the generated tf.data.Dataset object
@@ -48,7 +49,8 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitive):
                 else:
                     row[primitive_idx] = str(encoder.number(primitive))
 
-            x[row_idx] = new_feature_array if PAD_FEATURE_VECTORS else ' '.join(row)
+            # x[row_idx] = new_feature_array if PAD_FEATURE_VECTORS else ' '.join(row)
+            x[row_idx] = (new_feature_array)
 
 
     x_train = []

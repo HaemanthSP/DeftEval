@@ -56,9 +56,15 @@ def prepare_data(dataset_path, primitive_type):
     train_data = train_data_temp.skip(TAKE_SIZE).shuffle(BUFFER_SIZE)
     valid_data = train_data_temp.take(TAKE_SIZE)
 
-    train_data = train_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
-    valid_data = valid_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
-    test_data = test_data.padded_batch(BATCH_SIZE, padded_shapes=([-1], []))
+    train_data = train_data.batch(BATCH_SIZE)
+    valid_data = valid_data.batch(BATCH_SIZE)
+    test_data = test_data.batch(BATCH_SIZE)
+
+    print("Sample after tf padding")
+    print("Train data sample:")
+    print(next(iter(train_data)))
+    print("Test data sample:")
+    print(next(iter(test_data)))
 
     # Additional one for padding element
     global VOCAB_SIZE
@@ -81,12 +87,13 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
 
 def train(dataset_path):
     print("Preparing data")
-    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, transform.InputPrimitive.POS)
+    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, transform.InputPrimitive.TOKEN)
 
     print("Loading model")
     # model = experimental.simplified_baseline(VOCAB_SIZE, 64)
     model = experimental.create_multi_feature_model(
-                 [{'dim': 150, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64}])
+                   [{'dim': 150, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64},
+                    {'dim': 150, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64}])
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
@@ -99,6 +106,13 @@ def train(dataset_path):
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
             log_dir=log_dir, histogram_freq=1)
+
+    def to_dict(x, y):
+        return {'input_1': x, 'input_2': x}, y
+
+    train_data = train_data.map(to_dict)
+    valid_data = valid_data.map(to_dict)
+    test_data = test_data.map(to_dict)
 
     print("Training model")
     model.fit(train_data,
