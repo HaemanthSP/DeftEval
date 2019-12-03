@@ -86,7 +86,7 @@ def train(dataset_path):
     print("Loading model")
     # model = experimental.simplified_baseline(VOCAB_SIZE, 64)
     model = experimental.create_multi_feature_model(
-                 [{'dim': 150, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64}])
+                 [{'dim': None, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64}])
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
