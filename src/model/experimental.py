@@ -32,7 +32,7 @@ def create_multi_feature_model(input_attribs):
     """
     inputs_list = []
     for idx, input_attrib in enumerate(input_attribs):
-        inputs = tf.keras.Input(shape=(input_attrib['dim'],))
+        inputs = tf.keras.Input(shape=(input_attrib['dim'],), name="Feature_%s" % (idx+1))
         feature = feature_extractors(inputs,
                                      input_attrib['vocab_size'],
                                      input_attrib['embedding_dim'])
@@ -45,7 +45,7 @@ def create_multi_feature_model(input_attribs):
 
     Dense1 = tf.keras.layers.Dense(100, activation='relu')(concate)
     Dense2 = tf.keras.layers.Dense(50, activation='relu')(Dense1)
-    outputs = tf.keras.layers.Dense(1, activation=tf.nn.softmax)(Dense2)
+    outputs = tf.keras.layers.Dense(1, activation='sigmoid')(Dense2)
     model = tf.keras.Model(inputs=inputs_list, outputs=outputs)
 
     return model

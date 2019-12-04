@@ -4,12 +4,8 @@ import datetime
 from enum import Enum
 
 # Third party packages
-from tqdm import tqdm
-import spacy
-import pandas as pd
-import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-#os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
 import tensorflow as tf
 from pathlib import Path
 from tensorflow.keras import optimizers, metrics
@@ -36,8 +32,9 @@ def prepare_data(dataset_path, primitive_type):
     raw_test_dataset = corpus.load_files_into_dataset(os.path.join(dataset_path, 'dev'))
 
     print("Transforming dataset")
-    train_data, test_data, vocab, encoder = transform.tf_datasets_for_subtask_1(raw_train_dataset, raw_test_dataset, primitive_type)
-    print("Vocabulary Size: ", len(vocab))
+    train_data, test_data, vocabs, encoders = transform.tf_datasets_for_subtask_1(raw_train_dataset, raw_test_dataset, primitive_type)
+    for idx, vocab in enumerate(vocabs):
+        print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
 
     # Shuffle only the training set. Since test set doesnt need to be shuffled.
     train_data = train_data.shuffle(
@@ -68,9 +65,9 @@ def prepare_data(dataset_path, primitive_type):
 
     # Additional one for padding element
     global VOCAB_SIZE
-    VOCAB_SIZE = len(vocab) + 1
+    VOCAB_SIZE = [len(vocab) + 1 for vocab in vocabs]
 
-    return train_data, valid_data, test_data, encoder
+    return train_data, valid_data, test_data, encoders
 
 
 def print_mispredictions(gold_dataset, predictions, encoder, filepath):
@@ -87,13 +84,15 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
 
 def train(dataset_path):
     print("Preparing data")
-    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, transform.InputPrimitive.TOKEN)
+    input_primitives = [transform.InputPrimitive.TOKEN,
+                        transform.InputPrimitive.POS]
+    train_data, valid_data, test_data, encoder = prepare_data(dataset_path, input_primitives)
 
     print("Loading model")
     # model = experimental.simplified_baseline(VOCAB_SIZE, 64)
     model = experimental.create_multi_feature_model(
-                   [{'dim': 150, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64},
-                    {'dim': 150, 'vocab_size': VOCAB_SIZE, 'embedding_dim': 64}])
+                   [{'dim': 150, 'vocab_size': VOCAB_SIZE[0], 'embedding_dim': 64},
+                    {'dim': 150, 'vocab_size': VOCAB_SIZE[1], 'embedding_dim': 32}])
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
@@ -107,12 +106,14 @@ def train(dataset_path):
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
             log_dir=log_dir, histogram_freq=1)
 
-    def to_dict(x, y):
-        return {'input_1': x, 'input_2': x}, y
+    def to_dict(inputs, labels):
+        # inputs = {"Feature_" + str(i+1): inputs[i] for i, _ in enumerate(input_primitives)}
+        inputs = tf.reshape(inputs, (len(input_primitives), BATCH_SIZE, -1))
+        return (inputs[0], inputs[1]), labels
 
-    train_data = train_data.map(to_dict)
-    valid_data = valid_data.map(to_dict)
-    test_data = test_data.map(to_dict)
+    # train_data = train_data.map(to_dict)
+    # valid_data = valid_data.map(to_dict)
+    # test_data = test_data.map(to_dict)
 
     print("Training model")
     model.fit(train_data,
@@ -124,8 +125,9 @@ def train(dataset_path):
     print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
 
     predictions = model.predict(test_data)
-    print_mispredictions(test_data.unbatch(), predictions, encoder,
-                         'logs/subtask_1_test_mispredictions.txt')
+    # TODO: Need to be updgraded for multi feat dataset
+    # print_mispredictions(test_data.unbatch(), predictions, encoders,
+    #                      'logs/subtask_1_test_mispredictions.txt')
 
     return model
 
