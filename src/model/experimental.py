@@ -32,7 +32,7 @@ def create_multi_feature_model(input_attribs):
     """
     inputs_list = []
     for idx, input_attrib in enumerate(input_attribs):
-        inputs = tf.keras.Input(shape=(input_attrib['dim'],))
+        inputs = tf.keras.Input(shape=(input_attrib['dim'],), name="Feature_%s" % (idx+1))
         feature = feature_extractors(inputs,
                                      input_attrib['vocab_size'],
                                      input_attrib['embedding_dim'])
