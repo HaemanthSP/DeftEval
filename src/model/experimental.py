@@ -22,8 +22,10 @@ def feature_extractors(inputs, vocab_size, embedding_dim):
     Extract feature from a sequential input
     """
     embedded = layers.Embedding(vocab_size, embedding_dim)(inputs)
-    feature = layers.Bidirectional(layers.LSTM(64))(embedded)
-    return feature
+    bilstm1 = layers.Bidirectional(layers.LSTM(64, return_sequences=True))(embedded)
+    bilstm2 = layers.Bidirectional(layers.LSTM(64, return_sequences=True))(bilstm1)
+    dense = tf.keras.layers.Dense(100, activation='relu')(bilstm2)
+    return dense
 
 
 def create_multi_feature_model(input_attribs):
@@ -43,7 +45,8 @@ def create_multi_feature_model(input_attribs):
         else:
             concate = tf.keras.layers.concatenate([concate, feature])
 
-    Dense1 = tf.keras.layers.Dense(100, activation='relu')(concate)
+    bilstm = layers.Bidirectional(layers.LSTM(64))(concate)
+    Dense1 = tf.keras.layers.Dense(100, activation='relu')(bilstm)
     Dense2 = tf.keras.layers.Dense(50, activation='relu')(Dense1)
     outputs = tf.keras.layers.Dense(1, activation='sigmoid')(Dense2)
     model = tf.keras.Model(inputs=inputs_list, outputs=outputs)
