@@ -51,7 +51,7 @@ Attempts to find the hyperparameter for the baseline model that avoids the high 
 * In that line, by looking at the decoded mis-prediction which doesnt seem to contain any punctuation(Which could be critical for certain type of definitions). Tokenizer need attention
 
 Vocab size with filtering: 25427
-Vocab size without filtering: 26121
+Vocab size without filtering: 26121 (to Minimize: Might need to lower the text before encoding)
 
 |  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
 |-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
