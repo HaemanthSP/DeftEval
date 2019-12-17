@@ -52,3 +52,15 @@ Attempts to find the hyperparameter for the baseline model that avoids the high 
 
 Vocab size with filtering: 25427
 Vocab size without filtering: 26121
+
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
+| Multi feat | E(w32, pos16) [2x[2xBilstm(16) D[16]]Bilstm(16) D[16,1] | 10 | 0.1465 | 0.9231 | 0.9366 | 0.7822 | 0.5827 | 0.6727 | 0.718 | 0.623 | 0.689 |
+| Multi feat | [E(w32, pos16) 2x[2xBilstm(8) D[8]]Bilstm(8) D[8,1] | 10 | 0.1888 | 0.8881 | 0.9409 | 0.7271 | 0.6739 | 0.6045 | 0.627 | 0.682 | 0.652 |
+| Multi feat | E(w32, pos16) [2x[Bilstm(8) D[8]]Bilstm(8) D[8,1] | 10 | 0.2116 | 0.8781 | 0.9303 | 0.6369 | 0.6646 | 0.6105 | 0.561 | 0.690 | 0.685 |
+| Multi feat | E(w16, pos16) [2x[Bilstm(8) D[8]]Bilstm(8) D[8,1] | 10 | 0.2552 | 0.8735 | 0.8753 | 0.6263 | 0.5963 | 0.6132 | 0.500 | 0.699 | 0.707 |
+| Multi feat | E(w10, pos10) [2x[Bilstm(8)] Bilstm(8) D[8,1] | 10 | 0.3061 | 0.8256 | 0.8578 | 0.5696 | 0.6825 | 0.6301 | 0.493 | 0.707 | 0.670 |
+| Multi feat | E(w10) [[Bilstm(8)] Bilstm(8) D[8,1] | 10 | 0.2584 | 0.8526 | 0.8691 | 0.5572 | 0.6097 | 0.6667 | 0.523 | 0.654 | 0.685 |
+| Multi feat | E(pos10) [[Bilstm(8)] Bilstm(8) D[8,1] | 10 | 0.5887 | 0.0000 | 0.0000 | 0.5954 | 0.0000 | 0.0000 | 0.580 | 0.000 | 0.000 |
+
+
