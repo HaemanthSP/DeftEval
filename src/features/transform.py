@@ -63,8 +63,8 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
                 for primitive_idx, primitive in enumerate(feature_input):
                     new_feature_arrays[idx][primitive_idx] = encoders[idx].number(primitive)
 
-            x[row_idx] = {"Feature_1": new_feature_arrays[0],
-                          "Feature_2": new_feature_arrays[1]}
+            x[row_idx] = {"Feature_1": new_feature_arrays[0]}
+                         #  "Feature_2": new_feature_arrays[1]}
 
     # x_train, y_train, x_test, y_test = [[]] * 4
     x_train = []
