@@ -1,17 +1,9 @@
-# Built in
-from enum import Enum
-
-# Third party
-import spacy
-import numpy as np
-from tqdm import tqdm
-import tensorflow as tf
-
 # Local
+import sys
+sys.path.append("..")
+from common_imports import *
 from util.numberer import Numberer
 
-spacy.prefer_gpu()
-NLP = spacy.load("en_core_web_lg")
 PAD_FEATURE_VECTORS = True
 
 
@@ -21,32 +13,20 @@ class InputPrimitive(Enum):
     POS_WPUNCT = 3,
     DEP = 4
 
-
-def get_token(tokens):
+def get_token(tokens, nlp_annotations):
     return [ele.token.lower() for ele in tokens]
 
 
-def get_pos_with_punct(tokens):
-    result = []
-    for t in NLP(' '.join([ele.token for ele in tokens])):
-        if t.pos_ == 'PUNCT':
-            result.append(t.text)
-
-        else:
-            result.append(t.pos_)
-    return result
+def get_pos_with_punct(tokens, nlp_annotations):
+    return [t.text if t.pos_ == 'PUNCT' else t.pos_ for t in nlp_annotations]
 
 
-def get_pos(tokens):
-    return [t.pos_ for t in
-            NLP(' '.join([ele.token for ele in tokens]),
-                disable=['parser', 'ner'])]
+def get_pos(tokens, nlp_annotations):
+    return [t.pos_ for t in nlp_annotations]
 
 
-def get_dep(tokens):
-    return [t.dep_ for t in
-            NLP(' '.join([ele.token for ele in tokens]),
-                disable=['ner'])]
+def get_dep(tokens, nlp_annotations):
+    return [t.dep_ for t in nlp_annotations]
 
 
 def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
@@ -61,7 +41,7 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
                 for sent in context.sentences:
                     feature_inputs = []
                     for idx, primitive in enumerate(input_primitives):
-                        feature_input = feature_map[primitive.name](sent.tokens)
+                        feature_input = feature_map[primitive.name](sent.tokens, sent.nlp_annotations)
                         vocabulary_set[idx].update(feature_input)
                         feature_inputs.append(feature_input)
 
@@ -122,6 +102,7 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
     def test_generator():
         for x, y in zip(x_test, y_test):
             yield x, y
+
     types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
     shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
     train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)

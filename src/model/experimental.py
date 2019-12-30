@@ -1,5 +1,6 @@
-import tensorflow as tf
-from tensorflow.keras import layers
+import sys
+sys.path.append("..")
+from common_imports import *
 
 
 def simplified_baseline(vocab_size, embedding_dim):

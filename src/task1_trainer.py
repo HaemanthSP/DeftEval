@@ -1,21 +1,5 @@
-# Built in packages
-import os
-import datetime
-from enum import Enum
-
-# Third party packages
-from tqdm import tqdm
-import spacy
-import pandas as pd
-import numpy as np
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
-import tensorflow as tf
-from pathlib import Path
-from tensorflow.keras import optimizers, metrics
-
-
 # Local packages
+from common_imports import *
 from model import baseline, experimental
 from features import corpus, transform
 
@@ -35,12 +19,16 @@ def prepare_data(dataset_path, primitive_type):
     raw_train_dataset = corpus.load_files_into_dataset(os.path.join(dataset_path, 'train'))
     raw_test_dataset = corpus.load_files_into_dataset(os.path.join(dataset_path, 'dev'))
 
+    print("Performing NLP")
+    raw_train_dataset = corpus.perform_nlp(raw_train_dataset)
+    raw_test_dataset = corpus.perform_nlp(raw_test_dataset)
+
     print("Transforming dataset")
     train_data, test_data, vocabs, encoders = transform.tf_datasets_for_subtask_1(raw_train_dataset, raw_test_dataset, primitive_type)
     for idx, vocab in enumerate(vocabs):
         print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
 
-    # Shuffle only the training set. Since test set doesnt need to be shuffled.
+    # Shuffle only the training set. Since test set doesn't need to be shuffled.
     train_data = train_data.shuffle(
                 BUFFER_SIZE, reshuffle_each_iteration=False)
 

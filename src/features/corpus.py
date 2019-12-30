@@ -1,5 +1,6 @@
-from pathlib import Path
-from tqdm import tqdm
+import sys
+sys.path.append("..")
+from common_imports import *
 
 LOG_WARNINGS = False
 
@@ -35,6 +36,7 @@ class Sentence:
         self.sent_id = sent_id
         self.tokens = []
         self.line_no = line_num
+        self.nlp_annotations = None
 
     def add_token(self, features):
         new_token = Token(features)
@@ -84,7 +86,12 @@ class Dataset:
 
 def load_files_into_dataset(dataset_path):
     dataset = Dataset()
-    for data_file in tqdm(Path(dataset_path).iterdir()):
+    data_files = []
+    for file in Path(dataset_path).iterdir():
+        if file.suffix == '.deft':
+            data_files.append(file)
+
+    for data_file in tqdm(data_files):
         if data_file.suffix == '.deft':
             with open(data_file, 'r', encoding='utf-8') as file:
                 current_file = None
@@ -208,3 +215,13 @@ def load_files_into_dataset(dataset_path):
 
     return dataset
 
+def perform_nlp(dataset, dummy_data=False):
+    for file in tqdm(dataset.files):
+        for context in file.contexts:
+            for sent in context.sentences:
+                if dummy_data:
+                    sent.nlp_annotations = []
+                else:
+                    sent.nlp_annotations = NLP(' '.join([ele.token for ele in sent.tokens]), disable=['ner'])
+
+    return dataset
