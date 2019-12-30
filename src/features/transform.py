@@ -18,10 +18,23 @@ PAD_FEATURE_VECTORS = True
 class InputPrimitive(Enum):
     TOKEN = 1,
     POS = 2,
+    POS_WPUNCT = 3,
+    DEP = 4
 
 
 def get_token(tokens):
     return [ele.token.lower() for ele in tokens]
+
+
+def get_pos_with_punct(tokens):
+    result = []
+    for t in NLP(' '.join([ele.token for ele in tokens])):
+        if t.pos_ == 'PUNCT':
+            result.append(t.text)
+
+        else:
+            result.append(t.pos_)
+    return result
 
 
 def get_pos(tokens):
@@ -30,10 +43,16 @@ def get_pos(tokens):
                 disable=['parser', 'ner'])]
 
 
+def get_dep(tokens):
+    return [t.dep_ for t in
+            NLP(' '.join([ele.token for ele in tokens]),
+                disable=['ner'])]
+
+
 def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
 
     def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set):
-        feature_map = {'POS': get_pos, 'TOKEN': get_token}
+        feature_map = {'POS': get_pos, 'TOKEN': get_token, 'POS_WPUNCT': get_pos_with_punct, 'dep': get_dep}
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
