@@ -88,16 +88,16 @@ def print_mispredictions(gold_dataset, predictions, encoder, filepath):
 
 def train(dataset_path):
     print("Preparing data")
-    input_primitives = [transform.InputPrimitive.POS]
-    # input_primitives = [transform.InputPrimitive.TOKEN,
-    #                     transform.InputPrimitive.POS]
+    # input_primitives = [transform.InputPrimitive.POS]
+    input_primitives = [transform.InputPrimitive.POS_WPUNCT,
+                        transform.InputPrimitive.DEP]
     train_data, valid_data, test_data, encoder = prepare_data(dataset_path, input_primitives)
 
     print("Loading model")
     # model = experimental.simplified_baseline(VOCAB_SIZE, 64)
     model = experimental.create_multi_feature_model(
-                   [{'dim': 150, 'vocab_size': VOCAB_SIZE[0], 'embedding_dim': 128}])
-                   # {'dim': 150, 'vocab_size': VOCAB_SIZE[1], 'embedding_dim': 10}])
+                   [{'dim': 150, 'vocab_size': VOCAB_SIZE[0], 'embedding_dim': 64},
+                    {'dim': 150, 'vocab_size': VOCAB_SIZE[1], 'embedding_dim': 64}])
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])

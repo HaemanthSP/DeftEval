@@ -52,7 +52,10 @@ def get_dep(tokens):
 def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
 
     def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set):
-        feature_map = {'POS': get_pos, 'TOKEN': get_token, 'POS_WPUNCT': get_pos_with_punct, 'dep': get_dep}
+        feature_map = {'POS': get_pos,
+                       'TOKEN': get_token,
+                       'POS_WPUNCT': get_pos_with_punct,
+                       'DEP': get_dep}
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
@@ -82,8 +85,9 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
                 for primitive_idx, primitive in enumerate(feature_input):
                     new_feature_arrays[idx][primitive_idx] = encoders[idx].number(primitive)
 
-            x[row_idx] = {"Feature_1": new_feature_arrays[0]}
-                         #  "Feature_2": new_feature_arrays[1]}
+            x[row_idx] = {}
+            for idx, feat in enumerate(new_feature_arrays, 1):
+                x[row_idx].update({"Feature_%s" %(idx): feat})
 
     # x_train, y_train, x_test, y_test = [[]] * 4
     x_train = []
