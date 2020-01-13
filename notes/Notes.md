@@ -5,7 +5,7 @@ Class wise distribution of data:
 
 | Dataset | Positive  | Negative  | Total | Positive% |
 |-------|:---------:|:---------:|:-----:|:---------:|
-| train | 5569      | 11090     | 16659 |  33.43    | 
+| train | 5569      | 11090     | 16659 |  33.43    |
 | dev | 273       | 537       | 810   |  33.70    |
 
 
@@ -35,7 +35,7 @@ Attempts to find the hyperparameter for the baseline model that avoids the high 
 | Baseline_simplified_2 | Bilstm(32) D[20,1] | 10 | 0.1470 | 0.9149 | 0.9248 | 0.6603 | 0.6573 | 0.6413 | 0.6391 | 0.6680 | 0.6044 |
 | Baseline_simplified_3 | Bilstm(32) D[20(0.5),1] | 10 | 0.1963 | 0.9012 | 0.9158 | 0.7034 | 0.6444 | 0.5512 | 0.620 | 0.717 | 0.586 |
 
-* After analyzing the plots for above experiments. After Epoch 3 the model starts overfitting. 
+* After analyzing the plots for above experiments. After Epoch 3 the model starts overfitting.
 
 |  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
 |-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
@@ -68,3 +68,7 @@ Vocab size without filtering: 26121 (to Minimize: Might need to lower the text b
 | Multi feat | E(pos300) [[Bilstm(64)] Bilstm(32) D[32,1] | 30 | 0.5250 | 0.6759 | 0.3974 | 0.5415 | 0.6352 | 0.4519 | 0.517 | 0.701 | 0.429 |
 | Multi feat | E(pos300) [[2xBilstm(64) D[64]]Bilstm(32) D[32, 16,1] | 30 | 0.5237 | 0.6780 | 0.4020 | 0.5602 | 0.7815 | 0.2555 | 0.532 | 0.750 | 0.275 |
 | Multi feat | E(pos300) [[2xBilstm(64) D[64]]Bilstm(32) D[32, 16,1] | 1000 | 0.0333 | 0.9611 | 0.9705 | 2.2021 | 0.6265 | 0.6174 | 2.006 | 0.626 | 0.608 |
+| Multi feat | E(pos64, dep64) Bilstm(32) D[32, 16,1] | 30 | 0.4926 | 0.6909 | 0.5100 | 0.5158 | 0.6809 | 0.5000 | - | - | - |
+
+
+

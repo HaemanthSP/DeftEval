@@ -4,8 +4,6 @@ sys.path.append("..")
 from common_imports import *
 from util.numberer import Numberer
 
-PAD_FEATURE_VECTORS = True
-
 
 class InputPrimitive(Enum):
     TOKEN = 1,
@@ -29,13 +27,16 @@ def get_dep(tokens, nlp_annotations):
     return [t.dep_ for t in nlp_annotations]
 
 
-def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
+def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives, max_feature_vector_length):
 
     def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set):
         feature_map = {'POS': get_pos,
                        'TOKEN': get_token,
                        'POS_WPUNCT': get_pos_with_punct,
                        'DEP': get_dep}
+
+        num_pos = 0
+        num_neg = 0
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
@@ -50,8 +51,16 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
                         if token.tag[2:] == 'Definition':
                             label = 1
                             break
+
+                    if label == 1:
+                        num_pos += 1
+                    else:
+                        num_neg += 1
+
                     x.append(feature_inputs)
                     y.append(label)
+
+        return num_pos, num_neg
 
     def encode_primitives(x, encoders, shapes):
         # store the encoded primitives as a byte string to keep the tensor length fixed
@@ -77,14 +86,15 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
     combined_vocabs = [set() for i in input_primitives]
 
     print("Generating primitives and constructing vocabulary")
-    generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, combined_vocabs)
-    generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, combined_vocabs)
+    num_pos_train, num_neg_train = generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, combined_vocabs)
+    num_pos_test, num_neg_test = generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, combined_vocabs)
 
     print("Encoding primitives")
     encoders = [Numberer(vocab) for vocab in combined_vocabs]
     # For now all features are padded with same length
     # TODO: Make custom padding length for individual features
-    feature_vector_shapes = [max(train_dataset.max_sent_len, test_dataset.max_sent_len)] * len(input_primitives)
+    feature_vector_length = min(max_feature_vector_length, max(train_dataset.max_sent_len, test_dataset.max_sent_len))
+    feature_vector_shapes = [feature_vector_length] * len(input_primitives)
     encode_primitives(x_train, encoders, feature_vector_shapes)
     encode_primitives(x_test, encoders, feature_vector_shapes)
 
@@ -108,4 +118,4 @@ def tf_datasets_for_subtask_1(train_dataset, test_dataset, input_primitives):
     train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
     test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
 
-    return train_dataset, test_dataset, combined_vocabs, encoders
+    return train_dataset, test_dataset, combined_vocabs, encoders, feature_vector_length
