@@ -117,7 +117,7 @@ def train(dataset_path):
                     {'dim': feature_vector_length, 'vocab_size': VOCAB_SIZE[1], 'embedding_dim': 128}])
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.001),
-                  metrics=[metrics.Precision(), metrics.Recall(), tfa.metrics.F1Score(num_classes=2, average="macro")])
+                  metrics=[metrics.Precision(), metrics.Recall(), tfa.metrics.F1Score(num_classes=2, average="micro")])
                   #metrics=[tfa.metrics.F1Score(num_classes=2, average="micro")])
     model.summary()
 
