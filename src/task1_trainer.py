@@ -117,8 +117,7 @@ def train(dataset_path):
                     {'dim': feature_vector_length, 'vocab_size': VOCAB_SIZE[1], 'embedding_dim': 128}])
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.001),
-                  metrics=[metrics.Precision(), metrics.Recall(), tfa.metrics.F1Score(num_classes=2, average="micro")])
-                  #metrics=[tfa.metrics.F1Score(num_classes=2, average="micro")])
+                  metrics=[metrics.Precision(), metrics.Recall()])
     model.summary()
 
     if os.name == 'nt':
@@ -129,7 +128,7 @@ def train(dataset_path):
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
             log_dir=log_dir, histogram_freq=1)
     early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=False)
+        monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
     def to_dict(inputs, labels):
         # inputs = {"Feature_" + str(i+1): inputs[i] for i, _ in enumerate(input_primitives)}
@@ -147,10 +146,8 @@ def train(dataset_path):
               callbacks=[tensorboard_callback, early_stopping_callback],
               class_weight=calculate_class_weights(train_data.unbatch()))
 
-    eval_loss, eval_precision, eval_recall, eval_fscore = model.evaluate(test_data)
-    print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}, Eval f-score: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_fscore))
-    #eval_loss, eval_fscore = model.evaluate(test_data)
-    #print('\nEval loss: {:.3f}, Eval f-score: {:.3f}'.format(eval_loss, eval_fscore))
+    eval_loss, eval_precision, eval_recall = model.evaluate(test_data)
+    print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
 
     #predictions = model.predict(test_data)
     # TODO: Need to be updgraded for multi feat dataset
