@@ -1,6 +1,9 @@
+import features.preprocessor as clean
 import sys
 sys.path.append("..")
 from common_imports import *
+
+
 
 LOG_WARNINGS = False
 
@@ -40,6 +43,10 @@ class Sentence:
 
     def add_token(self, features):
         new_token = Token(features)
+        # Preprocessing text to limit the exploding vocabulary
+        # clean_token = clean.replace_urls(new_token)  # Lots of URLs
+        # clean_tokens = clean.add_space_around(clean_token).split()  # Replace improperly parsed words such as 2003).since link],consist 4-5
+        # self.tokens.extend(clean_tokens)
         self.tokens.append(new_token)
 
     def len(self):
@@ -104,6 +111,7 @@ def load_files_into_dataset(dataset_path):
                 new_sentence = False
 
                 lines = file.readlines()
+
                 for i in range(0, len(lines)):
                     if num_lines_to_skip > 0:
                         num_lines_to_skip -= 1
@@ -215,6 +223,7 @@ def load_files_into_dataset(dataset_path):
 
     return dataset
 
+
 def perform_nlp(dataset, dummy_data=False):
     for file in tqdm(dataset.files):
         for context in file.contexts:
@@ -222,6 +231,12 @@ def perform_nlp(dataset, dummy_data=False):
                 if dummy_data:
                     sent.nlp_annotations = []
                 else:
-                    sent.nlp_annotations = NLP(' '.join([ele.token for ele in sent.tokens]), disable=['ner'])
+                    raw_sent = ' '.join([ele.token for ele in sent.tokens])
+
+                    # Preprocessing text to limit the exploding vocabulary
+                    # clean_sent = clean.replace_urls(raw_sent)  # Lots of URLs
+                    # clean_sent = clean.add_space_around(clean_sent)  # Replace improperly parsed words such as 2003).since link],consist 4-5
+                    # sent.nlp_annotations = NLP(clean_sent, disable=['ner'])
+                    sent.nlp_annotations = NLP(raw_sent, disable=['ner'])
 
     return dataset
