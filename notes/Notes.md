@@ -75,3 +75,17 @@ Vocab size without filtering: 26121 (to Minimize: Might need to lower the text b
 | Multi feat | E(pos32, w2, dep32) [Bilstm(16)] D[16, 1] | 7 (ES-5) | 0.1609 | 0.9160 | 0.9082 | 0.8031 | 0.6367 | 0.5657 | 0.450 | 0.744 | 0.586 |
 | Multi feat | E(w2) [Bilstm(32)] D[16, 1] | 7 (ES-5) | 0.1196 | 0.9388 | 0.9454 | 0.7383 | 0.5983 | 0.6762 | 0.475 | 0.681 | 0.634 |
 | Multi feat | E(w1) [Bilstm(32)] D[16, 1] | 7 (ES-5) | 0.2004 | 0.8919 | 0.8919 | 0.6672 | 0.6416 | 0.6104 | 0.469 | 0.697 | 0.597 |
+
+Even the embedding only word with dim 1 leads to overfitting. This seems to be the effect of suspiciously high vocabulary size 22k from 16k sentences
+
+Reasons for vocabulary explosion:
+1. Lots of urls
+2. Numbers like values and years
+3. Strange alpha numeric combination due to noise in text
+4. Improperly parsed word due to irregular use of Punctuations
+5. Lack of space around "+ - \} \{ \) \( \[ \] = /" etc.. causes bad tokens
+
+Possible solution:
+1. urls - replace with a marker (addresses 1)
+2. Replace token less than freq less than n with its pos tag.. n has to be decided (addresses issues 2, 3, 4)
+3. Add space around "+ - \} \{ \) \( \[ \] = /" with space around (warning: after replacing urls)
