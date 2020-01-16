@@ -1,7 +1,7 @@
 from common_imports import *
 from corpus import *
 import features
-from util.numberer import Numberer
+from util import Numberer
 
 from spacy.tokenizer import Tokenizer
 from spacy.lang.en import English

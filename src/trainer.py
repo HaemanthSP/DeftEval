@@ -17,8 +17,8 @@ class Common:
         raw_test_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'dev'))
 
         print("Performing NLP")
-        loader.Common.perform_nlp(raw_train_dataset, dummy_data=True)
-        loader.Common.perform_nlp(raw_test_dataset, dummy_data=True)
+        loader.Common.perform_nlp(raw_train_dataset, dummy_data=False)
+        loader.Common.perform_nlp(raw_test_dataset, dummy_data=False)
 
         print("Transforming dataset")
         train_data, vocabs, encoders = loader.Task1.generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
@@ -135,7 +135,3 @@ class Task1:
                 class_weight=Task1.calculate_class_weights(train_data.unbatch()))
 
         return model
-
-
-if __name__ == '__main__':
-    train('../deft_corpus/data/deft_files/')
