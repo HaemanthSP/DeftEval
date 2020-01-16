@@ -1,0 +1,141 @@
+from common_imports import *
+import loader
+from model import experimental
+from features import InputPrimitive
+
+
+class Common:
+    BUFFER_SIZE = 20000
+    BATCH_SIZE = 64
+    TAKE_SIZE = 1000
+    FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
+
+    @staticmethod
+    def prepare_data(dataset_path, input_primitives):
+        print("Loading dataset")
+        raw_train_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'train'))
+        raw_test_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'dev'))
+
+        print("Performing NLP")
+        loader.Common.perform_nlp(raw_train_dataset, dummy_data=True)
+        loader.Common.perform_nlp(raw_test_dataset, dummy_data=True)
+
+        print("Transforming dataset")
+        train_data, vocabs, encoders = loader.Task1.generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
+        test_data = loader.Task1.generate_model_test_inputs(raw_test_dataset, input_primitives, encoders, vocabs, Common.FEATURE_VECTOR_LENGTH)
+        for idx, vocab in enumerate(vocabs):
+            print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
+
+        # Test set doesn't need to be shuffled
+        train_data = train_data.shuffle(
+                    Common.BUFFER_SIZE, reshuffle_each_iteration=False)
+
+        print("Train data sample:")
+        print(next(iter(train_data)))
+        print("Test data sample:")
+        print(next(iter(test_data)))
+
+        # Shuffle training data before sampling validation set
+        train_data_temp = train_data.shuffle(Common.BUFFER_SIZE,
+                                            reshuffle_each_iteration=False)
+
+        print("Cardinality:", tf.data.experimental.cardinality(train_data))
+        train_data = train_data_temp.skip(Common.TAKE_SIZE).shuffle(Common.BUFFER_SIZE)
+        valid_data = train_data_temp.take(Common.TAKE_SIZE)
+
+        train_data = train_data.batch(Common.BATCH_SIZE)
+        valid_data = valid_data.batch(Common.BATCH_SIZE)
+        test_data = test_data.batch(Common.BATCH_SIZE)
+
+        print("Sample after tf padding")
+        print("Train data sample:")
+        print(next(iter(train_data)))
+        print("Test data sample:")
+        print(next(iter(test_data)))
+
+        # Additional one for padding element
+        vocab_size = [len(vocab) + 1 for vocab in vocabs]
+
+        return train_data, valid_data, test_data, encoders, vocab_size
+
+
+    @staticmethod
+    def get_tensorboard_callback():
+        if os.name == 'nt':
+            log_dir = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "\\"
+        else:
+            log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        return tf.keras.callbacks.TensorBoard(
+                log_dir=log_dir, histogram_freq=1)
+
+
+class Task1:
+    EPOCHS = 50
+    INPUT_PRIMITIVES = [InputPrimitive.POS_WPUNCT,
+                        InputPrimitive.DEP]
+    EMBEDDING_DIM = 128
+    LEARNING_RATE = 0.001
+    ES_MIN_DELTA = 0.001
+    ES_PATIENCE = 5
+
+
+    @staticmethod
+    def get_class_distribution(dataset):
+        num_pos = 0
+        num_neg = 0
+        for data in dataset:
+            if data[1].numpy() == 1:
+                num_pos += 1
+            else:
+                num_neg += 1
+        return num_pos, num_neg
+
+
+    @staticmethod
+    def calculate_class_weights(dataset):
+        # https://www.tensorflow.org/tutorials/structured_data/imbalanced_data#calculate_class_weights
+        pos, neg = Task1.get_class_distribution(dataset)
+        total = pos + neg
+        weight_for_0 = (1 / neg) * (total)/2.0
+        weight_for_1 = (1 / pos) * (total)/2.0
+
+        class_weight = {0: weight_for_0, 1: weight_for_1}
+
+        print('No. of class 0: {:d}'.format(neg))
+        print('No. of class 1: {:d}'.format(pos))
+        print('Weight for class 0: {:.2f}'.format(weight_for_0))
+        print('Weight for class 1: {:.2f}'.format(weight_for_1))
+
+        return class_weight
+
+
+    @staticmethod
+    def prepare_data(dataset_path):
+        return Common.prepare_data(dataset_path, Task1.INPUT_PRIMITIVES)
+
+
+    @staticmethod
+    def train(train_data, valid_data, vocab_size):
+        model_gen_params = [
+            { 'dim': Common.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task1.EMBEDDING_DIM } for i in vocab_size]
+        model = experimental.create_multi_feature_model(model_gen_params)
+        model.compile(loss='binary_crossentropy',
+                    optimizer=optimizers.Adam(Task1.LEARNING_RATE),
+                    metrics=[metrics.Precision(), metrics.Recall()])
+        model.summary()
+
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss', min_delta=Task1.ES_MIN_DELTA, patience=Task1.ES_PATIENCE, restore_best_weights=True)
+
+        model.fit(train_data,
+                epochs=Task1.EPOCHS,
+                validation_data=valid_data,
+                callbacks=[Common.get_tensorboard_callback(), early_stopping_callback],
+                class_weight=Task1.calculate_class_weights(train_data.unbatch()))
+
+        return model
+
+
+if __name__ == '__main__':
+    train('../deft_corpus/data/deft_files/')
