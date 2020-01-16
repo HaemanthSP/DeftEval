@@ -211,7 +211,7 @@ class Task1:
 
 
     @staticmethod
-    def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set):
+    def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set, metadata=[]):
         feature_map = features.Task1.get_feature_map()
 
         for file in tqdm(dataset.files):
@@ -231,6 +231,9 @@ class Task1:
 
                     x.append(feature_inputs)
                     y.append(label)
+
+                    # add metadata specific to each instance for use during evaluation
+                    metadata.append((file, context, sent, label))
 
 
     @staticmethod
@@ -285,10 +288,11 @@ class Task1:
     def generate_model_test_inputs(test_dataset, input_primitives, encoders, combined_vocabs, feature_vector_length):
         x_test = []
         y_test = []
+        test_metadata = []
 
         print("Generating primitives and constructing vocabulary")
         # FIXME: Should we update the encoder/vocab here with new IDs for test set primitives that are OOV in the train set?
-        Task1.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, combined_vocabs)
+        Task1.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, combined_vocabs, test_metadata)
 
         print("Encoding primitives")
         # For now all features are padded with same length
@@ -307,7 +311,7 @@ class Task1:
         shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
 
-        return test_dataset
+        return test_dataset, test_metadata
 
 
 

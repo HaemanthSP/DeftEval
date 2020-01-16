@@ -22,11 +22,11 @@ class Common:
 
         print("Transforming dataset")
         train_data, vocabs, encoders = loader.Task1.generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
-        test_data = loader.Task1.generate_model_test_inputs(raw_test_dataset, input_primitives, encoders, vocabs, Common.FEATURE_VECTOR_LENGTH)
+        test_data, test_metadata = loader.Task1.generate_model_test_inputs(raw_test_dataset, input_primitives, encoders, vocabs, Common.FEATURE_VECTOR_LENGTH)
         for idx, vocab in enumerate(vocabs):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
 
-        # Test set doesn't need to be shuffled
+        # Test set should NOT be shuffled
         train_data = train_data.shuffle(
                     Common.BUFFER_SIZE, reshuffle_each_iteration=False)
 
@@ -56,7 +56,7 @@ class Common:
         # Additional one for padding element
         vocab_size = [len(vocab) + 1 for vocab in vocabs]
 
-        return train_data, valid_data, test_data, encoders, vocab_size
+        return train_data, valid_data, test_data, test_metadata, encoders, vocab_size
 
 
     @staticmethod
@@ -111,7 +111,7 @@ class Task1:
 
 
     @staticmethod
-    def prepare_data(dataset_path):
+    def prepare_training_data(dataset_path):
         return Common.prepare_data(dataset_path, Task1.INPUT_PRIMITIVES)
 
 
@@ -135,3 +135,8 @@ class Task1:
                 class_weight=Task1.calculate_class_weights(train_data.unbatch()))
 
         return model
+
+    @staticmethod
+    def predict(model, test_data):
+        return model.predict(test_data)
+

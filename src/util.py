@@ -3,13 +3,13 @@ import pickle
 
 class Serde:
     @staticmethod
-    def save_numberer(numberer, path):
+    def save_encoders(encoders, path):
         with open(path, mode='wb') as file:
-            pickle.dump(numberer, file)
+            pickle.dump(encoders, file)
 
 
     @staticmethod
-    def load_numberer(path):
+    def load_encoders(path):
         with open(path, mode='rb') as file:
             return pickle.load(file)
 
