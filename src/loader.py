@@ -311,15 +311,3 @@ class Task1:
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
 
         return test_dataset, test_metadata
-
-
-
-
-
-
-
-
-
-
-
-
