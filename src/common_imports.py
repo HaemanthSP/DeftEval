@@ -1,7 +1,7 @@
 # Built in packages
 import os
 import datetime
-from enum import Enum
+from enum import Enum, IntEnum
 import re
 
 # Third party packages
@@ -44,3 +44,8 @@ import spacy
 spacy.prefer_gpu()
 NLP = spacy.load("en_core_web_lg")
 
+
+class Task(IntEnum):
+    TASK_1 = 1,
+    TASK_2 = 2,
+    TASK_3 = 3

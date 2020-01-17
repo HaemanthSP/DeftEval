@@ -28,13 +28,14 @@ class Sentence:
     """
     Represents a sentence in a context window
     """
-    def __init__(self, sent_id, line_num):
+    def __init__(self, sent_id, line_num,raw_sent=None):
         self.sent_id = sent_id
         self.tokens = []
         self.line_no = line_num
         self.nlp_annotations = None
+        self.raw_sent = raw_sent
 
-    def add_token(self, token, start_char, end_char, tag, tag_id, root_id, relation):
+    def add_token(self, token, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
         new_token = Token(token, start_char, end_char, tag, tag_id, root_id, relation)
         # Preprocessing text to limit the exploding vocabulary
         # clean_token = clean.replace_urls(new_token)  # Lots of URLs

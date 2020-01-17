@@ -105,3 +105,4 @@ venv.bak/
 .vscode/
 src/logs/
 logs/
+saved_models/

@@ -1,6 +1,5 @@
 from common_imports import *
-from corpus import *
-import features
+import corpus, features
 from util import Numberer
 
 from spacy.tokenizer import Tokenizer
@@ -12,7 +11,7 @@ class Common:
 
     @staticmethod
     def load_training_data(dataset_path):
-        dataset = Dataset()
+        dataset = corpus.Dataset()
         data_files = []
         for file in Path(dataset_path).iterdir():
             if file.suffix == '.deft':
@@ -75,13 +74,13 @@ class Common:
 
                         if new_context or current_line_no == 1:
                             if current_file == None:
-                                current_file = File(str(data_file))
+                                current_file = corpus.File(str(data_file))
 
                             if current_context != None:
                                 assert current_file != None
                                 current_file.add_context(current_context)
 
-                            current_context = Context()
+                            current_context = corpus.Context()
 
                             if second_next_line != '\n':
                                 if Common.LOG_WARNINGS:
@@ -117,7 +116,7 @@ class Common:
                                         print("Suspiciously short sentence on line %d in file %s" % (current_sentence.line_no, str(data_file)))
 
                             next_sent_id += 1
-                            current_sentence = Sentence(next_sent_id, current_line_no)
+                            current_sentence = corpus.Sentence(next_sent_id, current_line_no)
 
                             new_sentence = False
 
@@ -168,7 +167,7 @@ class Common:
 class Task1:
     @staticmethod
     def load_evaluation_data(dataset_path):
-        dataset = Dataset()
+        dataset = corpus.Dataset()
         labels = []
 
         data_files = []
@@ -183,11 +182,11 @@ class Task1:
 
         for data_file in tqdm(data_files):
             if data_file.suffix == '.deft':
-                file = File(str(data_file))
-                context = Context()
+                file = corpus.File(str(data_file))
+                context = corpus.Context()
 
-                with open(data_file, 'r', encoding='utf-8') as file:
-                    lines = file.readlines()
+                with open(data_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
                     for i in range(0, len(lines)):
                         current_line = lines[i]
                         splits = current_line.split('\t')
@@ -196,7 +195,7 @@ class Task1:
                         sentence = re.sub('\"(.+)\"', r'\1', splits[0])
                         label = 1 if splits[1] == '"1"' else 0
 
-                        sent_wrapper = Sentence(sent_id=i,line_num=i)
+                        sent_wrapper = corpus.Sentence(sent_id=i,line_num=i,raw_sent=sentence)
                         for token in tokenizer(sentence):
                             # Flag all tokens as being inside a definition when the sentence has a positive label
                             sent_wrapper.add_token(token=token.text, tag='I-Definition' if label == 1 else 'B-Random')

@@ -3,20 +3,20 @@ import pickle
 
 class Serde:
     @staticmethod
-    def save_encoders(encoders, path):
+    def save_metadata(metadata, path):
         with open(path, mode='wb') as file:
-            pickle.dump(encoders, file)
+            pickle.dump(metadata, file)
 
 
     @staticmethod
-    def load_encoders(path):
+    def load_metadata(path):
         with open(path, mode='rb') as file:
             return pickle.load(file)
 
 
     @staticmethod
     def save_tf_model(model, path):
-        # path must have a '.h5' extension
+        assert path.endswith('.h5') == True
         model.save(path)
 
 

@@ -10,8 +10,15 @@ class Common:
     TAKE_SIZE = 1000
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
 
+    TASK_REGISTRY = {
+        Task.TASK_1 : loader.Task1,
+        #Task.TASK_2 : loader.Task2,
+        #Task.TASK_3 : loader.Task3,
+    }
+
+
     @staticmethod
-    def prepare_data(dataset_path, input_primitives):
+    def prepare_training_data(task, dataset_path, input_primitives):
         print("Loading dataset")
         raw_train_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'train'))
         raw_test_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'dev'))
@@ -21,8 +28,9 @@ class Common:
         loader.Common.perform_nlp(raw_test_dataset, dummy_data=False)
 
         print("Transforming dataset")
-        train_data, vocabs, encoders = loader.Task1.generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
-        test_data, test_metadata = loader.Task1.generate_model_test_inputs(raw_test_dataset, input_primitives, encoders, vocabs, Common.FEATURE_VECTOR_LENGTH)
+        train_data, vocabs, encoders = Common.TASK_REGISTRY[task].generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
+        test_data, test_metadata = Common.TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders, vocabs, Common.FEATURE_VECTOR_LENGTH)
+
         for idx, vocab in enumerate(vocabs):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
 
@@ -55,8 +63,36 @@ class Common:
 
         # Additional one for padding element
         vocab_size = [len(vocab) + 1 for vocab in vocabs]
+        train_metadata = (encoders, vocabs, vocab_size)
 
-        return train_data, valid_data, test_data, test_metadata, encoders, vocab_size
+        return train_data, valid_data, test_data, train_metadata, test_metadata
+
+
+    @staticmethod
+    def prepare_evaluation_data(task, dataset_path, input_primitives, train_metadata):
+        print("Loading dataset")
+        raw_test_dataset = Common.TASK_REGISTRY[task].load_evaluation_data(dataset_path)
+
+        print("Performing NLP")
+        loader.Common.perform_nlp(raw_test_dataset, dummy_data=False)
+
+        print("Transforming dataset")
+        test_data, test_metadata = Common.TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders=train_metadata[0], combined_vocabs=train_metadata[1], feature_vector_length=Common.FEATURE_VECTOR_LENGTH)
+
+        vocabs = train_metadata[1]
+        for idx, vocab in enumerate(vocabs):
+            print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
+
+        print("Test data sample:")
+        print(next(iter(test_data)))
+
+        test_data = test_data.batch(Common.BATCH_SIZE)
+
+        print("Sample after tf padding")
+        print("Test data sample:")
+        print(next(iter(test_data)))
+
+        return test_data, test_metadata
 
 
     @staticmethod
@@ -112,7 +148,7 @@ class Task1:
 
     @staticmethod
     def prepare_training_data(dataset_path):
-        return Common.prepare_data(dataset_path, Task1.INPUT_PRIMITIVES)
+        return Common.prepare_training_data(Task.TASK_1, dataset_path, Task1.INPUT_PRIMITIVES)
 
 
     @staticmethod
@@ -136,7 +172,27 @@ class Task1:
 
         return model
 
+
     @staticmethod
-    def predict(model, test_data):
-        return model.predict(test_data)
+    def prepare_evaluation_data(dataset_path, train_metadata):
+        return Common.prepare_evaluation_data(Task.TASK_1, dataset_path, Task1.INPUT_PRIMITIVES, train_metadata)
+
+
+    @staticmethod
+    def evaluate(model, test_data, test_metdata, results_path):
+        # test_metadata = [(file, context, sent, label)]
+        predictions = model.predict(test_data)
+        assert len(predictions) == len(test_metdata)
+
+        with open(results_path, mode='w', encoding='UTF-8') as file:
+            for i in range(0, len(predictions)):
+                prediction = predictions[i]
+                sentence = test_metdata[i][2]
+                file.write('"%s"\t"%d"\n' % (sentence.raw_sent, prediction))
+
+
+
+
+
+
 
