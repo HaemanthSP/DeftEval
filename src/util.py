@@ -64,5 +64,5 @@ class Preprocessor:
         return re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+ ', replacement, text)
 
     @staticmethod
-    def add_space_around(text, elements=r'([+\-\{\}\[\]\(\)=–])'):
+    def add_space_around(text, elements=r'([+\-\{\}\[\]\(\)=–\"])'):
         return re.sub(elements, r' \1 ', text)

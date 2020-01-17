@@ -6,6 +6,15 @@ class InputPrimitive(Enum):
     POS_WPUNCT = 3,
     DEP = 4
 
+
+# FIXME: We cannot assume that there will be 1-1 correspondence between tokens
+# and NLP annotations, especially in the case of badly tokenized sentences; e.g:
+# the number of tokens as read from corpus will not be equal to the number of tokens
+# in the annotation object as the NLP is performed on a reconstructed sentence. If
+# the individual tokens have sentence markers in them (in many cases, they do indeed),
+# the number of tokens parsed by the NLP pipeline will be greater than the former.
+
+
 def get_token(tokens, nlp_annotations):
     return [ele.token.lower() for ele in tokens]
 

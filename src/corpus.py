@@ -27,10 +27,6 @@ class Sentence:
 
     def add_token(self, token, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
         new_token = Token(token, start_char, end_char, tag, tag_id, root_id, relation)
-        # Preprocessing text to limit the exploding vocabulary
-        # clean_token = clean.replace_urls(new_token)  # Lots of URLs
-        # clean_tokens = clean.add_space_around(clean_token).split()  # Replace improperly parsed words such as 2003).since link],consist 4-5
-        # self.tokens.extend(clean_tokens)
         self.tokens.append(new_token)
 
     def len(self):

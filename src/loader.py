@@ -1,6 +1,6 @@
 from common_imports import *
 import corpus, features
-from util import Numberer
+from util import Numberer, Preprocessor
 
 from spacy.tokenizer import Tokenizer
 from spacy.lang.en import English
@@ -8,6 +8,9 @@ from spacy.lang.en import English
 
 class Common:
     LOG_WARNINGS = False
+
+    # Initialized after dependencies are resolved
+    TASK_REGISTRY = {}
 
     @staticmethod
     def load_training_data(dataset_path):
@@ -145,24 +148,20 @@ class Common:
 
 
     @staticmethod
-    def perform_nlp(dataset, dummy_data=False):
+    def perform_nlp(task, dataset, dummy_data=False):
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
+                    preprocessed_sent = Common.TASK_REGISTRY[task].preprocess_sentence(sent)
                     if dummy_data:
                         sent.nlp_annotations = []
                     else:
-                        raw_sent = ' '.join([ele.token for ele in sent.tokens])
-
-                        # TODO: Preprocessing text to limit the exploding vocabulary
-                        # clean_sent = clean.replace_urls(raw_sent)  # Lots of URLs
-                        # clean_sent = clean.add_space_around(clean_sent)  # Replace improperly parsed words such as 2003).since link],consist 4-5
-                        # sent.nlp_annotations = NLP(clean_sent, disable=['ner'])
-                        sent.nlp_annotations = NLP(raw_sent, disable=['ner'])
+                        sent.nlp_annotations = NLP(preprocessed_sent, disable=['ner'])
 
 
 # Evaluation data format:
 # https://groups.google.com/forum/#!topic/semeval-2020-task-6-all/JsmVmPrycfQ
+
 
 class Task1:
     @staticmethod
@@ -210,6 +209,15 @@ class Task1:
 
 
     @staticmethod
+    def preprocess_sentence(sentence):
+        raw_sent = ' '.join([ele.token for ele in sentence.tokens])
+        clean_sent = Preprocessor.replace_urls(raw_sent)        # Lots of URLs
+        clean_sent = Preprocessor.add_space_around(clean_sent)  # Replace improperly parsed words such as 2003)
+
+        return clean_sent
+
+
+    @staticmethod
     def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set, metadata=[]):
         feature_map = features.Task1.get_feature_map()
 
@@ -246,6 +254,11 @@ class Task1:
 
             for idx, feature_input in enumerate(row):
                 for primitive_idx, primitive in enumerate(feature_input):
+                    if primitive_idx >= shapes[0]:
+                        # Can occur if the NLP pipeline identifies more
+                        # tokens in the reconstructed sentence
+                        break
+
                     new_feature_arrays[idx][primitive_idx] = encoders[idx].number(primitive, add_if_absent)
 
             x[row_idx] = {}
@@ -311,3 +324,11 @@ class Task1:
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
 
         return test_dataset, test_metadata
+
+
+# Deferred init.
+Common.TASK_REGISTRY = {
+    Task.TASK_1 : Task1,
+    #Task.TASK_2 : Task2,
+    #Task.TASK_3 : Task3,
+}

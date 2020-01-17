@@ -2,6 +2,7 @@ from common_imports import *
 import loader
 from model import experimental
 from features import InputPrimitive
+import random
 
 
 class Common:
@@ -24,8 +25,8 @@ class Common:
         raw_test_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'dev'))
 
         print("Performing NLP")
-        loader.Common.perform_nlp(raw_train_dataset, dummy_data=False)
-        loader.Common.perform_nlp(raw_test_dataset, dummy_data=False)
+        loader.Common.perform_nlp(task, raw_train_dataset, dummy_data=False)
+        loader.Common.perform_nlp(task, raw_test_dataset, dummy_data=False)
 
         print("Transforming dataset")
         train_data, vocabs, encoders = Common.TASK_REGISTRY[task].generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
@@ -33,6 +34,7 @@ class Common:
 
         for idx, vocab in enumerate(vocabs):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
+            print("Random sample: %s" % (str(random.sample(vocab, 15))))
 
         # Test set should NOT be shuffled
         train_data = train_data.shuffle(
@@ -74,7 +76,7 @@ class Common:
         raw_test_dataset = Common.TASK_REGISTRY[task].load_evaluation_data(dataset_path)
 
         print("Performing NLP")
-        loader.Common.perform_nlp(raw_test_dataset, dummy_data=False)
+        loader.Common.perform_nlp(task, raw_test_dataset, dummy_data=False)
 
         print("Transforming dataset")
         test_data, test_metadata = Common.TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders=train_metadata[0], combined_vocabs=train_metadata[1], feature_vector_length=Common.FEATURE_VECTOR_LENGTH)
@@ -108,7 +110,7 @@ class Common:
 
 class Task1:
     EPOCHS = 50
-    INPUT_PRIMITIVES = [InputPrimitive.POS_WPUNCT,
+    INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
                         InputPrimitive.DEP]
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
