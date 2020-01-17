@@ -259,10 +259,10 @@ class Task1:
         y_train = []
         combined_vocabs = [set() for i in input_primitives]
 
-        print("[TRAIN] Generating primitives and constructing vocabulary")
+        print("Generating primitives and constructing vocabulary")
         Task1.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, combined_vocabs)
 
-        print("[TRAIN] Encoding primitives")
+        print("Encoding primitives")
         encoders = [Numberer(vocab) for vocab in combined_vocabs]
         # For now all features are padded with same length
         # TODO: Make custom padding length for individual features, account for OOV primitives in the test set
