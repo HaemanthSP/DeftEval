@@ -24,9 +24,9 @@ class Common:
         raw_train_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'train'))
         raw_test_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'dev'))
 
-        print("Performing NLP")
-        loader.Common.perform_nlp(task, raw_train_dataset, dummy_data=False)
-        loader.Common.perform_nlp(task, raw_test_dataset, dummy_data=False)
+        print("Preprocessing dataset")
+        loader.Common.preprocess_dataset(task, raw_train_dataset)
+        loader.Common.preprocess_dataset(task, raw_test_dataset)
 
         print("Transforming dataset")
         train_data, vocabs, encoders = Common.TASK_REGISTRY[task].generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
@@ -34,7 +34,7 @@ class Common:
 
         for idx, vocab in enumerate(vocabs):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
-            print("Random sample: %s" % (str(random.sample(vocab, 15))))
+            print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 200)))))
 
         # Test set should NOT be shuffled
         train_data = train_data.shuffle(
@@ -75,8 +75,8 @@ class Common:
         print("Loading dataset")
         raw_test_dataset = Common.TASK_REGISTRY[task].load_evaluation_data(dataset_path)
 
-        print("Performing NLP")
-        loader.Common.perform_nlp(task, raw_test_dataset, dummy_data=False)
+        print("Preprocessing dataset")
+        loader.Common.preprocess_dataset(task, raw_test_dataset)
 
         print("Transforming dataset")
         test_data, test_metadata = Common.TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders=train_metadata[0], combined_vocabs=train_metadata[1], feature_vector_length=Common.FEATURE_VECTOR_LENGTH)

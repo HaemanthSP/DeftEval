@@ -1,4 +1,5 @@
 from common_imports import *
+from collections import Counter
 
 class Token:
     """
@@ -66,6 +67,7 @@ class Dataset:
     def __init__(self):
         self.files = []
         self.max_sent_len = 0
+        self.term_frequencies = Counter()
 
     def add_file(self, file):
         self.files.append(file)

@@ -8,6 +8,7 @@ from spacy.lang.en import English
 
 class Common:
     LOG_WARNINGS = False
+    SKIP_NLP = False
 
     # Initialized after dependencies are resolved
     TASK_REGISTRY = {}
@@ -148,15 +149,21 @@ class Common:
 
 
     @staticmethod
-    def perform_nlp(task, dataset, dummy_data=False):
+    def preprocess_dataset(task, dataset, dummy_data=False):
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
                     preprocessed_sent = Common.TASK_REGISTRY[task].preprocess_sentence(sent)
-                    if dummy_data:
+                    if Common.SKIP_NLP:
                         sent.nlp_annotations = []
                     else:
                         sent.nlp_annotations = NLP(preprocessed_sent, disable=['ner'])
+
+                    for token in sent.nlp_annotations:
+                        if features.LOWERCASE_TOKENS:
+                            dataset.term_frequencies[token.text.lower()] += 1
+                        else:
+                            dataset.term_frequencies[token.text] += 1
 
 
 # Evaluation data format:
@@ -211,10 +218,10 @@ class Task1:
     @staticmethod
     def preprocess_sentence(sentence):
         raw_sent = ' '.join([ele.token for ele in sentence.tokens])
-        clean_sent = Preprocessor.replace_urls(raw_sent)        # Lots of URLs
-        clean_sent = Preprocessor.add_space_around(clean_sent)  # Replace improperly parsed words such as 2003)
+        preprocessed_sent = Preprocessor.replace_urls(raw_sent)
+        preprocessed_sent = Preprocessor.add_space_around(preprocessed_sent)  # Replace improperly parsed words such as 2003)
 
-        return clean_sent
+        return preprocessed_sent
 
 
     @staticmethod
@@ -226,7 +233,7 @@ class Task1:
                 for sent in context.sentences:
                     feature_inputs = []
                     for idx, primitive in enumerate(input_primitives):
-                        feature_input = feature_map[primitive.name](sent.tokens, sent.nlp_annotations)
+                        feature_input = feature_map[primitive.name](sent.tokens, sent.nlp_annotations, dataset.term_frequencies)
                         vocabulary_set[idx].update(feature_input)
                         feature_inputs.append(feature_input)
 
