@@ -199,15 +199,29 @@ class Task1:
 
 
 class Task2:
+    FEATURE_VECTOR_LENGTH = 150
+    EPOCHS = 1
+    INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
+                        InputPrimitive.DEP]
+    EMBEDDING_DIM = 128
+    LEARNING_RATE = 0.001
+    ES_MIN_DELTA = 0.001
+    ES_PATIENCE = 5
+
+    @staticmethod
+    def prepare_training_data(dataset_path):
+        return Common.prepare_training_data(Task.TASK_2, dataset_path, Task2.INPUT_PRIMITIVES)
+
+
     @staticmethod
     def prepare_evaluation_data(dataset_path, train_metadata):
-        return Common.prepare_evaluation_data(Task.TASK_2, dataset_path, Task1.INPUT_PRIMITIVES, train_metadata)
+        return Common.prepare_evaluation_data(Task.TASK_2, dataset_path, Task2.INPUT_PRIMITIVES, train_metadata)
 
 
 class Task3:
     @staticmethod
     def prepare_evaluation_data(dataset_path, train_metadata):
-        return Common.prepare_evaluation_data(Task.TASK_3, dataset_path, Task1.INPUT_PRIMITIVES, train_metadata)
+        return Common.prepare_evaluation_data(Task.TASK_3, dataset_path, Task3.INPUT_PRIMITIVES, train_metadata)
 
 
 

@@ -178,6 +178,14 @@ class Common:
 
 
     @staticmethod
+    def do_basic_preprocessing(sentence_str):
+        preprocessed_sent = Preprocessor.replace_urls(sentence_str)
+        preprocessed_sent = Preprocessor.add_space_around(preprocessed_sent)  # Replace improperly parsed words such as 2003)
+
+        return preprocessed_sent
+
+
+    @staticmethod
     def preprocess_dataset(task, dataset, dummy_data=False):
         for file in tqdm(dataset.files):
             for context in file.contexts:
@@ -204,22 +212,18 @@ class Task1:
     @staticmethod
     def preprocess_sentence(sentence):
         raw_sent = ' '.join([ele.token for ele in sentence.tokens])
-        preprocessed_sent = Preprocessor.replace_urls(raw_sent)
-        preprocessed_sent = Preprocessor.add_space_around(preprocessed_sent)  # Replace improperly parsed words such as 2003)
-
-        return preprocessed_sent
+        return Common.do_basic_preprocessing(raw_sent)
 
 
     @staticmethod
     def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set, metadata=[]):
-        feature_map = features.Task1.get_feature_map()
-
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
                     feature_inputs = []
                     for idx, primitive in enumerate(input_primitives):
-                        feature_input = feature_map[primitive.name](sent.tokens, sent.nlp_annotations, dataset.term_frequencies)
+                        feature_input = features.Task1.get_feature_input(
+                            sent.tokens, sent.nlp_annotations, dataset.term_frequencies)
                         vocabulary_set[idx].update(feature_input)
                         feature_inputs.append(feature_input)
 
@@ -238,9 +242,6 @@ class Task1:
 
     @staticmethod
     def encode_primitives(x, encoders, shapes, add_if_absent):
-        # store the encoded primitives as a byte string to keep the tensor length fixed
-        # individual features can be extracted using a map operation on the generated tf.data.Dataset object
-        # the alternative would be to pad it to the maximum sentence length in advance
         for row_idx, row in enumerate(tqdm(x)):
             new_feature_arrays = [np.zeros(shape, dtype=np.int32)
                                   for shape in shapes]
@@ -322,13 +323,153 @@ class Task1:
 class Task2:
     @staticmethod
     def load_evaluation_data(dataset_path):
-        return Common.load_deft_data(Task.TASK_2, dataset_path, evaluation_data=True)
+        dataset = Common.load_deft_data(Task.TASK_2, dataset_path, evaluation_data=True)
+        # move each sentence into its own context to prevent them being
+        # converted into a single prediction instance down the line
+        # FIXME: ensure that the actual evaluation data has no context information for this task
+        for file in dataset.files:
+            assert len(file.contexts) == 1
+            default_context = file.contexts[0]
+
+            file.contexts = []
+            for sent in default_context.sentences:
+                new_context = corpus.Context()
+                new_context.add_sentence(sent)
+                file.add_context(new_context)
+
+        return dataset
+
+
+    @staticmethod
+    def preprocess_sentence(sentence):
+        raw_sent = ' '.join([ele.token for ele in sentence.tokens])
+        return Common.do_basic_preprocessing(raw_sent)
+
+
+    @staticmethod
+    def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocab_x, vocab_y, metadata=[]):
+        longest_input_size = 0
+        for file in tqdm(dataset.files):
+            # concatenate all sentences in single context into a single data point
+            for context in file.contexts:
+                feature_inputs = []
+                labels = features.Task2.get_labels(context)
+                vocab_y.update(labels)
+
+                for idx, primitive in enumerate(input_primitives):
+                    feature_input = features.Task2.get_feature_input(context, primitive, dataset.term_frequencies)
+                    assert len(feature_input) == len(labels)
+
+                    vocab_x[idx].update(feature_input)
+                    feature_inputs.append(feature_input)
+
+                    if longest_input_size < len(feature_input):
+                        longest_input_size = len(feature_input)
+
+                x.append(feature_inputs)
+                y.append(labels)
+
+                metadata.append((file, context, labels))
+
+        return longest_input_size
+
+
+    @staticmethod
+    def encode_primitives(x_train, y_train, encoder_x, encoder_y, shapes, add_if_absent):
+        for row_idx, row in enumerate(tqdm(x)):
+            new_feature_arrays = [np.zeros(shape, dtype=np.int32)
+                                  for shape in shapes]
+
+            for idx, feature_input in enumerate(row):
+                for primitive_idx, primitive in enumerate(feature_input):
+                    new_feature_arrays[idx][primitive_idx] = encoder_x[idx].number(primitive, add_if_absent)
+
+            x[row_idx] = {}
+            for idx, feat in enumerate(new_feature_arrays, 1):
+                x[row_idx].update({"Feature_%s" %(idx): feat})
+
+        for row_idx, row in enumerate(tqdm(y)):
+            for idx, label in enumerate(row):
+                y[idx] = encoder_y.number(label, add_if_absent)
+
+
+    @staticmethod
+    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length=-1):
+        x_train = []
+        y_train = []
+        vocab_x = [set() for i in input_primitives]
+        vocab_y = set()
+
+        print("Generating primitives and constructing vocabulary")
+        max_feature_vector_length = Task2.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, vocab_x, vocab_y)
+
+        print("Encoding primitives")
+        encoder_x = [Numberer(vocab) for vocab in vocab_x]
+        encoder_y = Numberer(vocab_y)
+        if feature_vector_length == -1:
+            feature_vector_length = max_feature_vector_length
+
+        feature_vector_shapes = [feature_vector_length] * len(input_primitives)
+        Task2.encode_primitives(x_train, y_train, encoder_x, encoder_y, feature_vector_shapes, add_if_absent=False)
+
+        x_train = np.asarray(x_train)
+        y_train = np.asarray(y_train, dtype=np.int8)
+
+        def train_generator():
+            for x, y in zip(x_train, y_train):
+                yield x, y
+
+        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
+        train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
+
+        return train_dataset, vocab_x, vocab_y, encoder_x, encoder_y, feature_vector_length
+
+
+    @staticmethod
+    def generate_model_test_inputs(test_dataset, input_primitives, vocab_x, vocab_y, encoder_x, encoder_y, feature_vector_length):
+        x_test = []
+        y_test = []
+        test_metadata = []
+
+        print("Generating primitives and constructing vocabulary")
+        max_feature_vector_length = Task2.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, vocab_x, vocab_y, test_metadata)
+        # FIXME: what happens when the test set has a sentence longer than all the sents in the train set,
+        # i.e., when feature_vector_length=max_feature_vector_length in train set?
+        # it'll get truncated presumably, and so will the output tag sequence
+        if max_feature_vector_length > feature_vector_length:
+            print("WARNING: Evaluation data set has sentences that exceed the max. sentence length (%d > %d)" % (max_feature_vector_length, feature_vector_length))
+
+        print("Encoding primitives")
+        feature_vector_shapes = [feature_vector_length] * len(input_primitives)
+        Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y, feature_vector_shapes, add_if_absent=False)
+
+        x_test = np.asarray(x_test)
+        y_test = np.asarray(y_test, dtype=np.int8)
+
+        def test_generator():
+            for x, y in zip(x_test, y_test):
+                yield x, y
+
+        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
+        test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
+
+        return test_dataset, test_metadata
+
 
 
 class Task3:
     @staticmethod
     def load_evaluation_data(dataset_path):
         return Common.load_deft_data(Task.TASK_3, dataset_path, evaluation_data=True)
+
+
+    @staticmethod
+    def preprocess_sentence(sentence):
+        raw_sent = ' '.join([ele.token for ele in sentence.tokens])
+        return Common.do_basic_preprocessing(raw_sent)
+
 
 
 # Deferred init.
