@@ -223,7 +223,7 @@ class Task1:
                     feature_inputs = []
                     for idx, primitive in enumerate(input_primitives):
                         feature_input = features.Task1.get_feature_input(
-                            sent.tokens, sent.nlp_annotations, dataset.term_frequencies)
+                            sent, primitive, dataset.term_frequencies)
                         vocabulary_set[idx].update(feature_input)
                         feature_inputs.append(feature_input)
 
