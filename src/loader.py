@@ -13,24 +13,31 @@ class Common:
     # Initialized after dependencies are resolved
     TASK_REGISTRY = {}
 
+
     @staticmethod
-    def load_training_data(dataset_path):
+    def load_deft_data(task, dataset_path, evaluation_data=False):
         dataset = corpus.Dataset()
         data_files = []
         for file in Path(dataset_path).iterdir():
             if file.suffix == '.deft':
                 data_files.append(file)
 
+        # Use the default spacy tokenizer
+        # TODO: Check if the default tokenizer rules roughly correspond to the ones used in the training set
+        if evaluation_data and task == Task.TASK_1:
+            nlp = English()
+            tokenizer = nlp.Defaults.create_tokenizer(nlp)
+
         for data_file in tqdm(data_files):
             if data_file.suffix == '.deft':
                 with open(data_file, 'r', encoding='utf-8') as file:
-                    current_file = None
-                    current_sentence = None
-                    current_context = None
+                    current_file = corpus.File(str(data_file))
+                    current_sentence = corpus.Sentence(sent_id=1, line_num=1) if evaluation_data and task == Task.TASK_2 else None
+                    current_context = corpus.Context() if evaluation_data and task != Task.TASK_3 else None
                     next_sent_id = 0
                     line_break_count = 0
                     num_lines_to_skip = 0
-                    new_context = False
+                    new_context = True if not evaluation_data or task == Task.TASK_3 else False
                     new_sentence = False
 
                     lines = file.readlines()
@@ -49,7 +56,32 @@ class Common:
 
                         splits = [x.strip() for x in current_line.split('\t')]
 
-                        # attempt to detect and recover from malformed lines
+                        if evaluation_data:
+                            """
+                            Evaluation data format:
+                            https://groups.google.com/forum/#!topic/semeval-2020-task-6-all/JsmVmPrycfQ
+
+                            Input:
+                            Subtask 1: Sentences
+                            Subtask 2: [TOKEN] [SOURCE] [START_CHAR] [END_CHAR]
+                            Subtask 3: [TOKEN] [SOURCE] [START_CHAR] [END_CHAR] [TAG] [TAG_ID]
+
+                            Output:
+                            Subtask 1: Sentence classification label (0 or 1)
+                            Subtask 2: [TAG]
+                            Subtask 3: [ROOT_ID] [RELATION]
+                            """
+
+                            # Task 1 needs special casing, the rest share the same parsing routine as the training data
+                            if task == Task.TASK_1:
+                                sentence = Preprocessor.remove_quotes(splits[0])
+                                sent_wrapper = corpus.Sentence(sent_id=i,line_num=i,raw_sent=sentence)
+                                for token in tokenizer(sentence):
+                                    sent_wrapper.add_token(token=token.text)
+
+                                current_context.add_sentence(sent_wrapper)
+                                continue
+
                         if len(splits) > 0:
                             try:
                                 dummy = int(splits[0])
@@ -57,15 +89,8 @@ class Common:
                             except ValueError:
                                 first_token_is_int = False
 
-                            # check if potential context windows are correctly delimited
-                            # 1: .  data/source_txt/train/t1_biology_0_101.txt	 24472	 24473	 O	 -1	 -1	 0
-                            # 2:
-                            # 3: 509	data/source_txt/train/t1_biology_0_101.txt	 24469	 24472	 O	 -1	 -1	 0
-                            # 4: .	data/source_txt/train/t1_biology_0_101.txt	 24472	 24473	 O	 -1	 -1	 0
-                            # 5:
-                            # 6: ...
-
                             if first_token_is_int:
+                                # check if potential context windows are correctly delimited
                                 first_next_line_splits = [x.strip() for x in first_next_line.split('\t')] if first_next_line != None else []
                                 first_token_first_next_line = first_next_line_splits[0] if len(first_next_line_splits) > 0 else None
 
@@ -76,12 +101,8 @@ class Common:
 
                                         new_context = True
 
-                        if new_context or current_line_no == 1:
-                            if current_file == None:
-                                current_file = corpus.File(str(data_file))
-
+                        if new_context:
                             if current_context != None:
-                                assert current_file != None
                                 current_file.add_context(current_context)
 
                             current_context = corpus.Context()
@@ -109,7 +130,7 @@ class Common:
                             if current_sentence != None:
                                 assert current_context != None
 
-                                if current_context.len() >= 3 and Common.LOG_WARNINGS:
+                                if current_context.len() >= 3 and not evaluation_data and Common.LOG_WARNINGS:
                                     print("Extra sentence on line %d in file %s" % (current_line_no, str(data_file)))
 
                                 if current_sentence.len() != 0:
@@ -135,10 +156,18 @@ class Common:
                             new_context = True
                         else:
                             assert current_sentence != None
-                            current_sentence.add_token(
-                                splits[0], splits[2], splits[3], splits[4], splits[5], splits[6], splits[7])
 
-                    if current_sentence.len() > 0:
+                            # the latter annotations are only available in the train/dev sets
+                            current_sentence.add_token(
+                                token=Preprocessor.remove_quotes(splits[0]),
+                                start_char=splits[2],
+                                end_char=splits[3],
+                                tag=splits[4] if len(splits) > 4 else None,
+                                tag_id=splits[5] if len(splits) > 5 else None,
+                                root_id=splits[6] if len(splits) > 6 else None,
+                                relation=splits[7] if len(splits) > 7 else None)
+
+                    if current_sentence != None and current_sentence.len() > 0:
                         dataset.max_sent_len = max(dataset.max_sent_len, current_sentence.len())
                         current_context.add_sentence(current_sentence)
 
@@ -166,53 +195,10 @@ class Common:
                             dataset.term_frequencies[token.text] += 1
 
 
-# Evaluation data format:
-# https://groups.google.com/forum/#!topic/semeval-2020-task-6-all/JsmVmPrycfQ
-
-
 class Task1:
     @staticmethod
     def load_evaluation_data(dataset_path):
-        dataset = corpus.Dataset()
-        labels = []
-
-        data_files = []
-        for file in Path(dataset_path).iterdir():
-            if file.suffix == '.deft':
-                data_files.append(file)
-
-        # Use the default spacy tokenizer
-        # TODO: Check if the default tokenizer rules roughly correspond to the ones used in the training set
-        nlp = English()
-        tokenizer = nlp.Defaults.create_tokenizer(nlp)
-
-        for data_file in tqdm(data_files):
-            if data_file.suffix == '.deft':
-                file = corpus.File(str(data_file))
-                context = corpus.Context()
-
-                with open(data_file, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-                    for i in range(0, len(lines)):
-                        current_line = lines[i]
-                        splits = current_line.split('\t')
-                        assert len(splits) == 2
-
-                        sentence = re.sub('\"(.+)\"', r'\1', splits[0])
-                        label = 1 if splits[1] == '"1"' else 0
-
-                        sent_wrapper = corpus.Sentence(sent_id=i,line_num=i,raw_sent=sentence)
-                        for token in tokenizer(sentence):
-                            # Flag all tokens as being inside a definition when the sentence has a positive label
-                            sent_wrapper.add_token(token=token.text, tag='I-Definition' if label == 1 else 'B-Random')
-
-                        context.add_sentence(sent_wrapper)
-                        labels.append(label)
-
-                file.add_context(context)
-                dataset.add_file(file)
-
-        return dataset
+        return Common.load_deft_data(Task.TASK_1, dataset_path, evaluation_data=True)
 
 
     @staticmethod
@@ -239,7 +225,7 @@ class Task1:
 
                     label = 0
                     for token in sent.tokens:
-                        if token.tag[2:] == 'Definition':
+                        if token.tag != None and token.tag[2:] == 'Definition':
                             label = 1
                             break
 
@@ -333,9 +319,21 @@ class Task1:
         return test_dataset, test_metadata
 
 
+class Task2:
+    @staticmethod
+    def load_evaluation_data(dataset_path):
+        return Common.load_deft_data(Task.TASK_2, dataset_path, evaluation_data=True)
+
+
+class Task3:
+    @staticmethod
+    def load_evaluation_data(dataset_path):
+        return Common.load_deft_data(Task.TASK_3, dataset_path, evaluation_data=True)
+
+
 # Deferred init.
 Common.TASK_REGISTRY = {
     Task.TASK_1 : Task1,
-    #Task.TASK_2 : Task2,
-    #Task.TASK_3 : Task3,
+    Task.TASK_2 : Task2,
+    Task.TASK_3 : Task3,
 }

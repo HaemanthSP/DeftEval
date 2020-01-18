@@ -19,7 +19,7 @@ class Sentence:
     """
     Represents a sentence in a context window
     """
-    def __init__(self, sent_id, line_num,raw_sent=None):
+    def __init__(self, sent_id=-1, line_num=-1,raw_sent=None):
         self.sent_id = sent_id
         self.tokens = []
         self.line_no = line_num

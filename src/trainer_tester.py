@@ -9,32 +9,36 @@ class Common:
     BUFFER_SIZE = 20000
     BATCH_SIZE = 64
     TAKE_SIZE = 1000
-    FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
 
-    TASK_REGISTRY = {
+    LOADER_TASK_REGISTRY = {
         Task.TASK_1 : loader.Task1,
-        #Task.TASK_2 : loader.Task2,
-        #Task.TASK_3 : loader.Task3,
+        Task.TASK_2 : loader.Task2,
+        Task.TASK_3 : loader.Task3,
     }
+
+    # Initialized after dependencies are resolved
+    TASK_REGISTRY = {}
 
 
     @staticmethod
     def prepare_training_data(task, dataset_path, input_primitives):
         print("Loading dataset")
-        raw_train_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'train'))
-        raw_test_dataset = loader.Common.load_training_data(os.path.join(dataset_path, 'dev'))
+        raw_train_dataset = loader.Common.load_deft_data(task, os.path.join(dataset_path, 'train'))
+        raw_test_dataset = loader.Common.load_deft_data(task, os.path.join(dataset_path, 'dev'))
 
         print("Preprocessing dataset")
         loader.Common.preprocess_dataset(task, raw_train_dataset)
         loader.Common.preprocess_dataset(task, raw_test_dataset)
 
         print("Transforming dataset")
-        train_data, vocabs, encoders = Common.TASK_REGISTRY[task].generate_model_train_inputs(raw_train_dataset, input_primitives, Common.FEATURE_VECTOR_LENGTH)
-        test_data, test_metadata = Common.TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders, vocabs, Common.FEATURE_VECTOR_LENGTH)
+        train_data, vocabs, encoders = Common.LOADER_TASK_REGISTRY[task].generate_model_train_inputs(
+            raw_train_dataset, input_primitives, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
+        test_data, test_metadata = Common.LOADER_TASK_REGISTRY[task].generate_model_test_inputs(
+            raw_test_dataset, input_primitives, encoders, vocabs, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
 
         for idx, vocab in enumerate(vocabs):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
-            print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 200)))))
+            print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 150)))))
 
         # Test set should NOT be shuffled
         train_data = train_data.shuffle(
@@ -73,13 +77,13 @@ class Common:
     @staticmethod
     def prepare_evaluation_data(task, dataset_path, input_primitives, train_metadata):
         print("Loading dataset")
-        raw_test_dataset = Common.TASK_REGISTRY[task].load_evaluation_data(dataset_path)
+        raw_test_dataset = Common.LOADER_TASK_REGISTRY[task].load_evaluation_data(dataset_path)
 
         print("Preprocessing dataset")
         loader.Common.preprocess_dataset(task, raw_test_dataset)
 
         print("Transforming dataset")
-        test_data, test_metadata = Common.TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders=train_metadata[0], combined_vocabs=train_metadata[1], feature_vector_length=Common.FEATURE_VECTOR_LENGTH)
+        test_data, test_metadata = Common.LOADER_TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders=train_metadata[0], combined_vocabs=train_metadata[1], feature_vector_length=Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
 
         vocabs = train_metadata[1]
         for idx, vocab in enumerate(vocabs):
@@ -109,7 +113,8 @@ class Common:
 
 
 class Task1:
-    EPOCHS = 50
+    FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
+    EPOCHS = 1
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
                         InputPrimitive.DEP]
     EMBEDDING_DIM = 128
@@ -156,7 +161,7 @@ class Task1:
     @staticmethod
     def train(train_data, valid_data, vocab_size):
         model_gen_params = [
-            { 'dim': Common.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task1.EMBEDDING_DIM } for i in vocab_size]
+            { 'dim': Task1.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task1.EMBEDDING_DIM } for i in vocab_size]
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',
                     optimizer=optimizers.Adam(Task1.LEARNING_RATE),
@@ -193,8 +198,25 @@ class Task1:
                 file.write('"%s"\t"%d"\n' % (sentence.raw_sent, prediction))
 
 
+class Task2:
+    @staticmethod
+    def prepare_evaluation_data(dataset_path, train_metadata):
+        return Common.prepare_evaluation_data(Task.TASK_2, dataset_path, Task1.INPUT_PRIMITIVES, train_metadata)
 
 
+class Task3:
+    @staticmethod
+    def prepare_evaluation_data(dataset_path, train_metadata):
+        return Common.prepare_evaluation_data(Task.TASK_3, dataset_path, Task1.INPUT_PRIMITIVES, train_metadata)
+
+
+
+# Deferred init.
+Common.TASK_REGISTRY = {
+    Task.TASK_1 : Task1,
+    Task.TASK_2 : Task2,
+    Task.TASK_3 : Task3,
+}
 
 
 

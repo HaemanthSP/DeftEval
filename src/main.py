@@ -5,8 +5,8 @@ from util import Serde
 
 TASK_REGISTRY = {
     Task.TASK_1 : trainer_tester.Task1,
-    #Task.TASK_2 : trainer_tester.Task2,
-    #Task.TASK_3 : trainer_tester.Task3,
+    Task.TASK_2 : trainer_tester.Task2,
+    Task.TASK_3 : trainer_tester.Task3,
 }
 
 CORPUS_PATH = '../deft_corpus/data/deft_files/'
