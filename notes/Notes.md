@@ -87,5 +87,36 @@ Reasons for vocabulary explosion:
 
 Possible solution:
 1. urls - replace with a marker (addresses 1)
-2. Replace token less than freq less than n with its pos tag.. n has to be decided (addresses issues 2, 3, 4)
+2. Replace token less than freq less than n (50) with its pos tag.. n has to be decided (addresses issues 2, 3, 4)
 3. Add space around "+ - \} \{ \) \( \[ \] = /" with space around (warning: after replacing urls)
+
+After all the above changes.. the vocabulary is drastically reduced, until it prevents overfitting with 1-dimensional embedding.
+
+Some definition of definitions are not so clear
+" Organisms are individual living entities ." 1 : This is a definition
+" Organelles are small structures that exist within cells ." 0 : this is not a definition
+
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
+| Multi feat CNN| [E(wxpos128(freq>70), dep128, head128) 2xCNN(64) Bilstm(32) D[16,1] | 9ES(5) | 0.2414 | 0.8621 | 0.8742 | 0.5384 | 0.7601 | 0.6740 | 0.527 | 0.650 | 0.612 |
+| Multi feat CNN| [E(wxpos128(freq>90), dep128, head128) 2xCNN(64) Bilstm(32) D[16,1] | 9ES(5) | 0.3389 | 0.7971 | 0.7922 | 0.5176 | 0.6577 | 0.6242 | 0.523 | 0.736 | 0.491 |
+| Multi feat CNN| [E(wxpos128(freq>70), dep128, head128) 2xCNN(64) Bilstm(32) D[16,1] | 9ES(5) | 0.3014 | 0.8345 | 0.8233 | 0.4869 | 0.8074 | 0.5881 | 0.530 | 0.619 | 0.648 |
+
+Epoch 2/100
+245/245 [==============================] - 52s 211ms/step - loss: 0.4848 - precision: 0.7055 - recall: 0.6138 - val_loss: 0.4901 - val_precision: 0.8162 - val_recall: 0.4507
+Epoch 3/100
+245/245 [==============================] - 49s 199ms/step - loss: 0.4524 - precision: 0.7221 - recall: 0.6449 - val_loss: 0.4388 - val_precision: 0.7765 - val_recall: 0.6119
+Epoch 4/100
+245/245 [==============================] - 48s 196ms/step - loss: 0.4169 - precision: 0.7498 - recall: 0.6846 - val_loss: 0.4304 - val_precision: 0.7031 - val_recall: 0.7493
+Epoch 5/100
+245/245 [==============================] - 49s 201ms/step - loss: 0.3919 - precision: 0.7608 - recall: 0.7177 - val_loss: 0.4585 - val_precision: 0.6362 - val_recall: 0.8090
+Epoch 6/100
+245/245 [==============================] - 49s 198ms/step - loss: 0.3801 - precision: 0.7699 - recall: 0.7421 - val_loss: 0.4300 - val_precision: 0.7331 - val_recall: 0.7134
+Epoch 7/100
+245/245 [==============================] - 50s 203ms/step - loss: 0.3453 - precision: 0.8013 - recall: 0.7809 - val_loss: 0.4415 - val_precision: 0.7940 - val_recall: 0.6328
+Epoch 8/100
+245/245 [==============================] - 49s 201ms/step - loss: 0.3172 - precision: 0.8179 - recall: 0.8048 - val_loss: 0.4453 - val_precision: 0.7759 - val_recall: 0.6716
+Epoch 9/100
+245/245 [==============================] - 48s 196ms/step - loss: 0.3014 - precision: 0.8345 - recall: 0.8233 - val_loss: 0.4869 - val_precision: 0.8074 - val_recall: 0.5881
+
+Eval loss: 0.530, Eval precision: 0.619, Eval recall: 0.648

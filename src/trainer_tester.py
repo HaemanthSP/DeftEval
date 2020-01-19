@@ -121,7 +121,7 @@ class Task1:
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
     ES_MIN_DELTA = 0.001
-    ES_PATIENCE = 10
+    ES_PATIENCE = 5
 
 
     @staticmethod

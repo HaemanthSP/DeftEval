@@ -10,7 +10,7 @@ class InputPrimitive(Enum):
 
 
 LOWERCASE_TOKENS = True
-MIN_FREQ_COUNT = 50
+MIN_FREQ_COUNT = 70
 
 
 # FIXME: We cannot assume that there will be 1-1 correspondence between tokens
