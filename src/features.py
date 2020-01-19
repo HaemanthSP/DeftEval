@@ -5,11 +5,12 @@ class InputPrimitive(Enum):
     TOKEN = 1,
     POS = 2,
     POS_WPUNCT = 3,
-    DEP = 4
+    DEP = 4,
+    HEAD = 5
 
 
 LOWERCASE_TOKENS = True
-MIN_FREQ_COUNT = 10
+MIN_FREQ_COUNT = 50
 
 
 # FIXME: We cannot assume that there will be 1-1 correspondence between tokens
@@ -28,9 +29,7 @@ class Task1:
         for t in nlp_annotations:
             to_add = t.text.lower() if LOWERCASE_TOKENS else t.text
 
-            if t.pos_ == 'NUM':
-                to_add = t.pos_
-            elif term_frequencies[to_add] < MIN_FREQ_COUNT:
+            if t.pos_ == 'NUM' or term_frequencies[to_add] < MIN_FREQ_COUNT:
                 to_add = t.pos_      # more informative than a placeholder
 
             out.append(to_add)
@@ -51,6 +50,20 @@ class Task1:
     def get_dep(tokens, nlp_annotations, term_frequencies):
         return [t.dep_ for t in nlp_annotations]
 
+    def get_head(tokens, nlp_annotations, term_frequencies):
+        out = []
+        for t in nlp_annotations:
+            ancestors = list(t.ancestors)
+            if ancestors:
+                head = ancestors[0] if LOWERCASE_TOKENS else ancestors[0]
+                if head.pos_ == 'NUM' or term_frequencies[head] < MIN_FREQ_COUNT:
+                    to_add = head.pos_      # more informative than a placeholder
+                else:
+                    to_add = str(head).lower()
+            else:
+                to_add = 'ROOT'
+            out.append(to_add)
+        return out
 
     @staticmethod
     def get_feature_input(sentence, primitive, term_frequencies):
@@ -58,7 +71,8 @@ class Task1:
             'POS': Task1.get_pos,
             'TOKEN': Task1.get_token,
             'POS_WPUNCT': Task1.get_pos_with_punct,
-            'DEP': Task1.get_dep
+            'DEP': Task1.get_dep,
+            'HEAD': Task1.get_head
         }
 
         return feature_map[primitive.name](sentence.tokens, sentence.nlp_annotations, term_frequencies)

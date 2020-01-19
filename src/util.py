@@ -65,7 +65,7 @@ class Preprocessor:
 
 
     @staticmethod
-    def add_space_around(text, elements=r'([+\-\{\}\[\]\(\)=–\"])'):
+    def add_space_around(text, elements=r'([+\-\{\}\[\]\(\)=–\"\'])'):
         return re.sub(elements, r' \1 ', text)
 
 

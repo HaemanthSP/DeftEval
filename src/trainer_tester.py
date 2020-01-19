@@ -114,13 +114,14 @@ class Common:
 
 class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
-    EPOCHS = 1
+    EPOCHS = 100
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
-                        InputPrimitive.DEP]
+                        InputPrimitive.DEP,
+                        InputPrimitive.HEAD]
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
     ES_MIN_DELTA = 0.001
-    ES_PATIENCE = 5
+    ES_PATIENCE = 10
 
 
     @staticmethod

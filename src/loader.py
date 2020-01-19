@@ -159,7 +159,7 @@ class Common:
 
                             # the latter annotations are only available in the train/dev sets
                             current_sentence.add_token(
-                                token=Preprocessor.remove_quotes(splits[0]),
+                                token=splits[0],
                                 start_char=splits[2],
                                 end_char=splits[3],
                                 tag=splits[4] if len(splits) > 4 else None,
