@@ -181,7 +181,6 @@ class Common:
     @staticmethod
     def do_basic_preprocessing(sentence_str):
         preprocessed_sent = Preprocessor.replace_urls(sentence_str)
-        preprocessed_sent = Preprocessor.add_space_around(preprocessed_sent)  # Replace improperly parsed words such as 2003)
 
         return preprocessed_sent
 
@@ -213,7 +212,8 @@ class Task1:
     @staticmethod
     def preprocess_sentence(sentence):
         raw_sent = ' '.join([ele.token for ele in sentence.tokens])
-        return Common.do_basic_preprocessing(raw_sent)
+        preprocessed_sent = Common.do_basic_preprocessing(raw_sent)
+        return Preprocessor.add_space_around(preprocessed_sent)  # Replace improperly parsed words such as 2003)
 
 
     @staticmethod
@@ -359,6 +359,10 @@ class Task2:
 
                 for idx, primitive in enumerate(input_primitives):
                     feature_input = features.Task2.get_feature_input(context, primitive, dataset.term_frequencies)
+                    if len(feature_input) != len(labels):
+                        print("Length: %s, %s" % (len(feature_input), len(labels)))
+                        print(feature_input)
+                        print([t.token for sent in context.sentences for t in sent.tokens])
                     assert len(feature_input) == len(labels)
 
                     vocab_x[idx].update(feature_input)
@@ -376,7 +380,7 @@ class Task2:
 
 
     @staticmethod
-    def encode_primitives(x_train, y_train, encoder_x, encoder_y, shapes, add_if_absent):
+    def encode_primitives(x, y, encoder_x, encoder_y, shapes, add_if_absent):
         for row_idx, row in enumerate(tqdm(x)):
             new_feature_arrays = [np.zeros(shape, dtype=np.int32)
                                   for shape in shapes]

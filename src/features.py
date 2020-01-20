@@ -10,7 +10,7 @@ class InputPrimitive(Enum):
 
 
 LOWERCASE_TOKENS = True
-MIN_FREQ_COUNT = 10
+MIN_FREQ_COUNT = 2
 
 
 # FIXME: We cannot assume that there will be 1-1 correspondence between tokens
@@ -29,6 +29,9 @@ class Task1:
         for t in nlp_annotations:
             to_add = t.text.lower() if LOWERCASE_TOKENS else t.text
 
+            if t.pos_ == 'SPACE':
+                continue
+
             if t.pos_ == 'NUM' or term_frequencies[to_add] < MIN_FREQ_COUNT:
                 to_add = t.pos_      # more informative than a placeholder
 
@@ -38,17 +41,17 @@ class Task1:
 
     @staticmethod
     def get_pos_with_punct(tokens, nlp_annotations, term_frequencies):
-        return [t.text if t.pos_ == 'PUNCT' else t.pos_ for t in nlp_annotations]
+        return [t.text if t.pos_ == 'PUNCT' else t.pos_ for t in nlp_annotations if t.pos_ != 'SPACE']
 
 
     @staticmethod
     def get_pos(tokens, nlp_annotations, term_frequencies):
-        return [t.pos_ for t in nlp_annotations]
+        return [t.pos_ for t in nlp_annotations if t.pos_ != 'SPACE']
 
 
     @staticmethod
     def get_dep(tokens, nlp_annotations, term_frequencies):
-        return [t.dep_ for t in nlp_annotations]
+        return [t.dep_ for t in nlp_annotations if t.pos_ != 'SPACE']
 
     def get_head(tokens, nlp_annotations, term_frequencies):
         out = []
@@ -95,30 +98,73 @@ class Task2:
 
 
     @staticmethod
+    def __get_token(tokens, nlp_annotations, term_frequencies):
+        """This be the primary feature untouched"""
+        out = []
+        for t in tokens:
+            to_add = t.token.lower() if LOWERCASE_TOKENS else t.text
+
+            # if t.pos_ == 'NUM' or term_frequencies[to_add] < MIN_FREQ_COUNT:
+                # to_add = t.pos_      # more informative than a placeholder
+
+            out.append(to_add)
+
+        return out
+
+    @staticmethod
+    def __get_pos_with_punct(tokens, nlp_annotations, term_frequencies):
+        return [t.text if t.pos_ == 'PUNCT' else t.pos_ for t in nlp_annotations if t.pos_ != 'SPACE']
+
+
+    @staticmethod
+    def __get_pos(tokens, nlp_annotations, term_frequencies):
+        return [t.pos_ for t in nlp_annotations if t.pos_ != 'SPACE']
+
+
+    @staticmethod
+    def __get_dep(tokens, nlp_annotations, term_frequencies):
+        return [t.dep_ for t in tokens]
+
+    def __get_head(tokens, nlp_annotations, term_frequencies):
+        out = []
+        for t in nlp_annotations:
+            ancestors = list(t.ancestors)
+            if ancestors:
+                head = ancestors[0] if LOWERCASE_TOKENS else ancestors[0]
+                if head.pos_ == 'NUM' or term_frequencies[head] < MIN_FREQ_COUNT:
+                    to_add = head.pos_      # more informative than a placeholder
+                else:
+                    to_add = str(head).lower()
+            else:
+                to_add = 'ROOT'
+            out.append(to_add)
+        return out
+
+    @staticmethod
     def get_token(context, term_frequencies):
         return Task2.wrap_sentences(context,
-            lambda sent, tf=term_frequencies: Task1.get_token(sent.tokens, sent.nlp_annotations, tf),
+            lambda sent, tf=term_frequencies: Task2.__get_token(sent.tokens, sent.nlp_annotations, tf),
             sent_begin_marker=Task2.SENTENCE_BEGIN_MARKER, sent_end_marker=Task2.SENTENCE_END_MARKER)
 
 
     @staticmethod
     def get_pos_with_punct(context, term_frequencies):
         return Task2.wrap_sentences(context,
-            lambda sent, tf=term_frequencies: Task1.get_pos_with_punct(sent.tokens, sent.nlp_annotations, tf),
+            lambda sent, tf=term_frequencies: Task2.__get_pos_with_punct(sent.tokens, sent.nlp_annotations, tf),
             sent_begin_marker=Task2.SENTENCE_BEGIN_MARKER, sent_end_marker=Task2.SENTENCE_END_MARKER)
 
 
     @staticmethod
     def get_pos(context, term_frequencies):
         return Task2.wrap_sentences(context,
-            lambda sent, tf=term_frequencies: Task1.get_pos(sent.tokens, sent.nlp_annotations, tf),
+            lambda sent, tf=term_frequencies: Task2.__get_pos(sent.tokens, sent.nlp_annotations, tf),
             sent_begin_marker=Task2.SENTENCE_BEGIN_MARKER, sent_end_marker=Task2.SENTENCE_END_MARKER)
 
 
     @staticmethod
     def get_dep(context, term_frequencies):
         return Task2.wrap_sentences(context,
-            lambda sent, tf=term_frequencies: Task1.get_dep(sent.tokens, sent.nlp_annotations, tf),
+            lambda sent, tf=term_frequencies: Task2.__get_dep(sent.tokens, sent.nlp_annotations, tf),
             sent_begin_marker=Task2.SENTENCE_BEGIN_MARKER, sent_end_marker=Task2.SENTENCE_END_MARKER)
 
 

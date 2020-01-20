@@ -129,3 +129,5 @@ Some definition of definitions are not so clear
 * 245/245 [==============================] - 48s 196ms/step - loss: 0.3014 - precision: 0.8345 - recall: 0.8233 - val_loss: 0.4869 - val_precision: 0.8074 - val_recall: 0.5881
 * 
 * Eval loss: 0.530, Eval precision: 0.619, Eval recall: 0.648
+
+Adding regularization to embedding and recurrent kernel seems to have positive impact on training
