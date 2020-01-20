@@ -46,13 +46,15 @@ def create_multi_feature_model(input_attribs):
             concate = feature
         else:
             concate = tf.keras.layers.concatenate([concate, feature])
-    conv1 = layers.Conv1D(64, 3, activation='relu')(concate)
-    conv2 = layers.Conv1D(64, 3, activation='relu')(conv1)
-    bilstm1 = layers.Bidirectional(layers.LSTM(32, kernel_regularizer=regularizers.l2(0.001), use_bias=False, return_sequences=True))(conv2)
-    bilstm2 = layers.Bidirectional(layers.LSTM(32, kernel_regularizer=regularizers.l2(0.001), use_bias=False))(bilstm1)
+    conv1 = layers.Conv1D(128, 5, activation='relu')(concate)
+    conv2 = layers.Conv1D(64, 4, activation='relu')(conv1)
+    conv3 = layers.Conv1D(64, 3, activation='relu')(conv2)
+    # bilstm1 = layers.Bidirectional(layers.LSTM(32, kernel_regularizer=regularizers.l2(0.001), use_bias=False, return_sequences=True))(conv2)
+    bilstm1 = layers.Bidirectional(layers.LSTM(64, kernel_regularizer=regularizers.l2(0.001), use_bias=False))(conv3)
+    # bilstm2 = layers.Bidirectional(layers.LSTM(32, kernel_regularizer=regularizers.l2(0.001), use_bias=False))(bilstm1)
     # Dense1 = tf.keras.layers.Dense(100, activation='relu')(bilstm)
     # Dense2 = tf.keras.layers.Dense(50, activation='relu')(Dense1)
-    Dense2 = tf.keras.layers.Dense(16, activation='relu', kernel_regularizer=regularizers.l2(0.001))(bilstm2)
+    Dense2 = tf.keras.layers.Dense(32, activation='relu', kernel_regularizer=regularizers.l2(0.001))(bilstm1)
     outputs = tf.keras.layers.Dense(1, activation='sigmoid')(Dense2)
     model = tf.keras.Model(inputs=inputs_list, outputs=outputs)
 
