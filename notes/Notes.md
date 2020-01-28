@@ -131,3 +131,17 @@ Some definition of definitions are not so clear
 * Eval loss: 0.530, Eval precision: 0.619, Eval recall: 0.648
 
 Adding regularization to embedding and recurrent kernel seems to have positive impact on training
+
+Suspecting: issue of not masking while padding could be an issue: specifically with a recurrent unit
+
+Attempting to use a fully convolutional network
+
+
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
+| Multi feat full CNN| [E(wxpos128(freq>2), dep128, head128) 3xCNN(128,64,64)(5,4,3) D[100(0.5), 50(0.5),1] | 7ES(5) | 0.3773 | 0.8640 | 0.8524 | 0.6638 | 0.6543 | 0.7278 | 0.516 | 0.850 | 0.501 |
+| Multi feat | [E(wxpos128(freq>2), dep128, head128) [[Bilstm(64) ] Bilstm(32) D[24(0.5), 8(0.5), 1] | 9(ES) | 0.4822 | 0.8285 | 0.6911 | 0.5578 | 0.7079 | 0.6458 | 0.517 | 0.777 | 0.589 |
+| Multi feat | [E(wxpos128(freq>2), dep128, head128) [[Bilstm(64) ] Bilstm(32) D[24(0.5), 8(0.5), 1] | 11(ES) | 0.4822 | 0.8285 | 0.6911 | 0.5578 | 0.7079 | 0.6458 | 0.517 | 0.777 | 0.589 |
+Epoch 11/100
+60/60 [==============================] - 49s 821ms/step - loss: 0.4392 - precision: 0.8957 - recall: 0.7740 - val_loss: 0.7434 - val_precision: 0.6178 - val_recall: 0.7429
+Eval loss: 0.602, Eval precision: 0.822, Eval recall: 0.638
