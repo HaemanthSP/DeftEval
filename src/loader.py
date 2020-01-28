@@ -1,6 +1,7 @@
 from common_imports import *
 import corpus, features
 from util import Numberer, Preprocessor
+import random
 
 from spacy.tokenizer import Tokenizer
 from spacy.lang.en import English
@@ -53,6 +54,9 @@ class Common:
                         current_line_no = i + 1
                         first_next_line = lines[i + 1] if i + 1 < len(lines) else None
                         second_next_line = lines[i + 2] if i + 2 < len(lines) else None
+
+                        if current_line_no == 1 and current_line == '\n':
+                            continue
 
                         splits = [x.strip() for x in current_line.split('\t')]
 
@@ -186,12 +190,12 @@ class Common:
 
 
     @staticmethod
-    def preprocess_dataset(task, dataset, dummy_data=False):
+    def preprocess_dataset(task, dataset, use_dummy_nlp_annotations=False):
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
                     preprocessed_sent = Common.TASK_REGISTRY[task].preprocess_sentence(sent)
-                    if Common.SKIP_NLP:
+                    if Common.SKIP_NLP or use_dummy_nlp_annotations:
                         sent.nlp_annotations = []
                     else:
                         sent.nlp_annotations = NLP(preprocessed_sent, disable=['ner'])
@@ -288,7 +292,8 @@ class Task1:
         shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
         train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
 
-        return train_dataset, combined_vocabs, encoders
+        # pack the vocabs and encoders in a tuple to keep the format the same between tasks
+        return train_dataset, (combined_vocabs, ''), (encoders, '')
 
 
     @staticmethod
@@ -296,6 +301,10 @@ class Task1:
         x_test = []
         y_test = []
         test_metadata = []
+
+        # unpack tuples
+        encoders = encoders[0]
+        combined_vocabs = combined_vocabs[0]
 
         print("Generating primitives and constructing vocabulary")
         # FIXME: Should we update the encoder/vocab here with new IDs for test set primitives that are OOV in the train set?
@@ -317,6 +326,10 @@ class Task1:
         types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
         shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
+
+        for idx, vocab in enumerate(combined_vocabs):
+            print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
+            print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 150)))))
 
         return test_dataset, test_metadata
 
@@ -360,9 +373,10 @@ class Task2:
                 for idx, primitive in enumerate(input_primitives):
                     feature_input = features.Task2.get_feature_input(context, primitive, dataset.term_frequencies)
                     if len(feature_input) != len(labels):
-                        print("Length: %s, %s" % (len(feature_input), len(labels)))
-                        print(feature_input)
-                        print([t.token for sent in context.sentences for t in sent.tokens])
+                        debugbreak()
+                        # print("Length: %s, %s" % (len(feature_input), len(labels)))
+                        # print(feature_input)
+                        # print([t.token for sent in context.sentences for t in sent.tokens])
                     assert len(feature_input) == len(labels)
 
                     vocab_x[idx].update(feature_input)
@@ -387,6 +401,9 @@ class Task2:
 
             for idx, feature_input in enumerate(row):
                 for primitive_idx, primitive in enumerate(feature_input):
+                    if primitive_idx >= shapes[0]:
+                        break
+
                     new_feature_arrays[idx][primitive_idx] = encoder_x[idx].number(primitive, add_if_absent)
 
             x[row_idx] = {}
@@ -395,11 +412,11 @@ class Task2:
 
         for row_idx, row in enumerate(tqdm(y)):
             for idx, label in enumerate(row):
-                y[idx] = encoder_y.number(label, add_if_absent)
+                y[row_idx][idx] = encoder_y.number(label, add_if_absent)
 
 
     @staticmethod
-    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length=-1):
+    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length):
         x_train = []
         y_train = []
         vocab_x = [set() for i in input_primitives]
@@ -411,14 +428,14 @@ class Task2:
         print("Encoding primitives")
         encoder_x = [Numberer(vocab) for vocab in vocab_x]
         encoder_y = Numberer(vocab_y)
-        if feature_vector_length == -1:
-            feature_vector_length = max_feature_vector_length
+        if max_feature_vector_length > feature_vector_length:
+            print("WARNING: Training data set has sentences that exceed the max. sentence length (%d > %d)" % (max_feature_vector_length, feature_vector_length))
 
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task2.encode_primitives(x_train, y_train, encoder_x, encoder_y, feature_vector_shapes, add_if_absent=False)
 
         x_train = np.asarray(x_train)
-        y_train = np.asarray(y_train, dtype=np.int8)
+        y_train = np.array(y_train)
 
         def train_generator():
             for x, y in zip(x_train, y_train):
@@ -428,14 +445,19 @@ class Task2:
         shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
         train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
 
-        return train_dataset, vocab_x, vocab_y, encoder_x, encoder_y, feature_vector_length
+        return train_dataset, (vocab_x, vocab_y), (encoder_x, encoder_y)
 
 
     @staticmethod
-    def generate_model_test_inputs(test_dataset, input_primitives, vocab_x, vocab_y, encoder_x, encoder_y, feature_vector_length):
+    def generate_model_test_inputs(test_dataset, input_primitives, encoders, combined_vocabs, feature_vector_length):
         x_test = []
         y_test = []
         test_metadata = []
+
+        vocab_x = combined_vocabs[0]
+        vocab_y = combined_vocabs[1]
+        encoder_x = encoders[0]
+        encoder_y = encoders[1]
 
         print("Generating primitives and constructing vocabulary")
         max_feature_vector_length = Task2.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, vocab_x, vocab_y, test_metadata)
@@ -450,7 +472,7 @@ class Task2:
         Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y, feature_vector_shapes, add_if_absent=False)
 
         x_test = np.asarray(x_test)
-        y_test = np.asarray(y_test, dtype=np.int8)
+        y_test = np.array(y_test)
 
         def test_generator():
             for x, y in zip(x_test, y_test):
@@ -459,6 +481,13 @@ class Task2:
         types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
         shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
+
+        for idx, vocab in enumerate(vocab_x):
+            print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
+            print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 150)))))
+
+        print("Vocabulary Size of tags: %s" % (len(vocab_y)))
+        print("Tags: %s" % (' '.join(vocab_y)))
 
         return test_dataset, test_metadata
 

@@ -125,6 +125,8 @@ class Task2:
     def __get_dep(tokens, nlp_annotations, term_frequencies):
         return [t.dep_ for t in tokens]
 
+
+    @staticmethod
     def __get_head(tokens, nlp_annotations, term_frequencies):
         out = []
         for t in nlp_annotations:

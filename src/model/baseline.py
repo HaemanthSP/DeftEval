@@ -14,8 +14,25 @@ def create_task1_model(vocab_size, embedding_dim):
     return model
 
 
-def create_task2_model():
-    raise NotImplementedError
+def create_task2_model(input_attribs, num_tags):
+    inputs_list = []
+    for idx, input_attrib in enumerate(input_attribs):
+        inputs = tf.keras.Input(shape=(input_attrib['dim'],), name="Feature_%s" % (idx+1))
+        feature = feature_extractors(inputs,
+                                     input_attrib['vocab_size'],
+                                     input_attrib['embedding_dim'])
+
+        inputs_list.append(inputs)
+        if idx == 0:
+            concate = feature
+        else:
+            concate = tf.keras.layers.concatenate([concate, feature])
+    bilstm = layers.Bidirectional(layers.LSTM(32, kernel_regularizer=regularizers.l2(0.001), use_bias=False))(concate)
+    dropout = layers.Dropout(0.5)(bilstm)
+    outputs = layers.Dense(num_tags, activation='softmax')(output)
+    model = tf.keras.Model(inputs=inputs_list, outputs=outputs)
+
+    return model
 
 
 def create_task3_model():

@@ -49,3 +49,7 @@ class Task(IntEnum):
     TASK_1 = 1,
     TASK_2 = 2,
     TASK_3 = 3
+
+
+def debugbreak():
+    pass

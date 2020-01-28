@@ -2,7 +2,6 @@ from common_imports import *
 import loader
 from model import experimental
 from features import InputPrimitive
-import random
 
 
 class Common:
@@ -27,18 +26,15 @@ class Common:
         raw_test_dataset = loader.Common.load_deft_data(task, os.path.join(dataset_path, 'dev'))
 
         print("Preprocessing dataset")
-        loader.Common.preprocess_dataset(task, raw_train_dataset)
-        loader.Common.preprocess_dataset(task, raw_test_dataset)
+        use_dummy_nlp_annotations = len(input_primitives) == 1 and input_primitives[0] == InputPrimitive.TOKEN
+        loader.Common.preprocess_dataset(task, raw_train_dataset, use_dummy_nlp_annotations)
+        loader.Common.preprocess_dataset(task, raw_test_dataset, use_dummy_nlp_annotations)
 
         print("Transforming dataset")
         train_data, vocabs, encoders = Common.LOADER_TASK_REGISTRY[task].generate_model_train_inputs(
             raw_train_dataset, input_primitives, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
         test_data, test_metadata = Common.LOADER_TASK_REGISTRY[task].generate_model_test_inputs(
             raw_test_dataset, input_primitives, encoders, vocabs, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
-
-        for idx, vocab in enumerate(vocabs):
-            print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
-            print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 150)))))
 
         # Test set should NOT be shuffled
         train_data = train_data.shuffle(
@@ -67,9 +63,17 @@ class Common:
         print("Test data sample:")
         print(next(iter(test_data)))
 
-        # Additional one for padding element
-        vocab_size = [len(vocab) + 1 for vocab in vocabs]
-        train_metadata = (encoders, vocabs, vocab_size)
+        vocab_size_x = None
+        vocab_size_y = None
+
+        if task == Task.TASK_1:
+            # Additional one for padding element
+            vocab_size_x = [len(vocab) + 1 for vocab in vocabs]
+        else:
+            vocab_size_x = [len(vocab) + 1 for vocab in vocabs[0]]
+            vocab_size_y = len(vocabs[1]) + 1
+
+        train_metadata = (encoders, vocabs, (vocab_size_x, vocab_size_y))
 
         return train_data, valid_data, test_data, train_metadata, test_metadata
 
@@ -84,10 +88,6 @@ class Common:
 
         print("Transforming dataset")
         test_data, test_metadata = Common.LOADER_TASK_REGISTRY[task].generate_model_test_inputs(raw_test_dataset, input_primitives, encoders=train_metadata[0], combined_vocabs=train_metadata[1], feature_vector_length=Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
-
-        vocabs = train_metadata[1]
-        for idx, vocab in enumerate(vocabs):
-            print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
 
         print("Test data sample:")
         print(next(iter(test_data)))
@@ -160,9 +160,10 @@ class Task1:
 
 
     @staticmethod
-    def train(train_data, valid_data, vocab_size):
+    def train(train_data, valid_data, train_metadata):
+        vocab_size_x = train_metadata[2][0]
         model_gen_params = [
-            { 'dim': Task1.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task1.EMBEDDING_DIM } for i in vocab_size]
+            { 'dim': Task1.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task1.EMBEDDING_DIM } for i in vocab_size_x]
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',
                     optimizer=optimizers.Adam(Task1.LEARNING_RATE),
@@ -200,7 +201,7 @@ class Task1:
 
 
 class Task2:
-    FEATURE_VECTOR_LENGTH = 300
+    FEATURE_VECTOR_LENGTH = 350
     EPOCHS = 1
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN]
                        #  InputPrimitive.DEP]
@@ -209,9 +210,33 @@ class Task2:
     ES_MIN_DELTA = 0.001
     ES_PATIENCE = 5
 
+
     @staticmethod
     def prepare_training_data(dataset_path):
         return Common.prepare_training_data(Task.TASK_2, dataset_path, Task2.INPUT_PRIMITIVES)
+
+
+    @staticmethod
+    def train(train_data, valid_data, train_metadata):
+        vocab_size_x = train_metadata[2][0]
+        vocab_size_y = train_metadata[2][1]
+        model_gen_params = [
+            { 'dim': Task2.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task2.EMBEDDING_DIM } for i in vocab_size_x]
+        model = baseline.create_task2_model(model_gen_params, vocab_size_y)
+        model.compile(loss='categorical_crossentropy',
+                    optimizer=optimizers.RMSprop(Task2.LEARNING_RATE),
+                    metrics=[metrics.Precision(), metrics.Recall()])
+        model.summary()
+
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss', min_delta=Task2.ES_MIN_DELTA, patience=Task2.ES_PATIENCE, restore_best_weights=True)
+
+        model.fit(train_data,
+                epochs=Task2.EPOCHS,
+                validation_data=valid_data,
+                callbacks=[Common.get_tensorboard_callback(), early_stopping_callback])
+
+        return model
 
 
     @staticmethod

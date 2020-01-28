@@ -21,7 +21,7 @@ def train(task, dataset_path):
     train_data, valid_data, test_data, train_metadata, _ = TASK_REGISTRY[task].prepare_training_data(dataset_path)
 
     print("Constructing and training model")
-    trained_model = TASK_REGISTRY[task].train(train_data, valid_data, train_metadata[2])
+    trained_model = TASK_REGISTRY[task].train(train_data, valid_data, train_metadata)
 
     print("Evaluating model on dev set")
     eval_loss, eval_precision, eval_recall = trained_model.evaluate(test_data)
@@ -59,7 +59,11 @@ def evaluate(task, dataset_path, trained_model, train_metadata):
 
 
 if __name__ == '__main__':
-    model, metadata = train(Task.TASK_2, CORPUS_PATH)
-    save_model(model, metadata, MODEL_SAVE_PATH, 'Task2-Test')
-    model, metadata = load_model(MODEL_SAVE_PATH, 'Task2-Test')
-    evaluate(Task.TASK_2, '../deft_corpus/evaluation/input/ref', model, metadata)
+    current_task = Task.TASK_2
+    model_prefix = 'Task2-Test'
+    eval_data_path = '../deft_corpus/evaluation/input/ref'
+
+    model, metadata = train(current_task, CORPUS_PATH)
+    save_model(model, metadata, MODEL_SAVE_PATH, model_prefix)
+    model, metadata = load_model(MODEL_SAVE_PATH, model_prefix)
+    evaluate(current_task, eval_data_path, model, metadata)
