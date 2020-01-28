@@ -20,12 +20,19 @@ EPOCHS = 30
 ES_MIN_DELTA = 0.001
 ES_PATIENCE = 5
 
+tokenizer = tft.WhitespaceTokenizer()
+# TODO: implement tokenizer wrapper
+def tokenizer_wrapper():
+    return 
+
 
 def prepare_data(path, encoder=None):
 
     # Get training data
     df = pd.read_csv(path, sep="\t", names=["Sentence", "Label"])
     target = df.pop("Label")
+
+    #
     raw_dataset = tf.data.Dataset.from_tensor_slices((df.values, target.values))
 
     vocab_size = None
@@ -33,13 +40,12 @@ def prepare_data(path, encoder=None):
         print("\nTokenization...")
         tokenizer = tft.WhitespaceTokenizer()
         tokens_list = tokenizer.tokenize(df["Sentence"].to_list()).to_list()
-        vocabulary_set = set([x.decode('utf-8') for x in itertools.chain.from_iterable(tokens_list)])
+        vocabulary_set = set([x.decode('utf-8').lower() for x in itertools.chain.from_iterable(tokens_list)])
         vocab_size = len(vocabulary_set)
         print("Vocabulary Size: ", vocab_size)
         print(random.sample(vocabulary_set, 20))
 
-        print("\nEncoding...")
-        encoder = tfds.features.text.TokenTextEncoder(vocabulary_set)
+        encoder = tfds.features.text.TokenTextEncoder(vocabulary_set, lowercase=True, strip_vocab=False)
         example_text = next(iter(raw_dataset))[0].numpy()
         print("Example text")
         print(example_text)
@@ -55,9 +61,29 @@ def prepare_data(path, encoder=None):
     def encode_map_fn(text, label):
         return tf.py_function(encode, inp=[text, label], Tout=(tf.int64, tf.int64))
 
+    print("\nEncoding...")
     encoded_data = raw_dataset.map(encode_map_fn)
     
     return encoded_data, vocab_size, encoder
+
+
+def analyse(model, test_data, encoder): 
+    for data, label in test_data.take(1): 
+        prediction = model.predict(data) 
+        for actual, pred, inp in zip(label, prediction, data): 
+            print(actual.numpy(), pred, encoder.decode(inp)) 
+
+
+def evaluate(model, test_data, test_metdata, results_path):
+    # test_metadata = [(file, context, sent, label)]
+    predictions = model.predict(test_data)
+    assert len(predictions) == len(test_metdata)
+
+    with open(results_path, mode='w', encoding='UTF-8') as file:
+        for i in range(0, len(predictions)):
+            prediction = predictions[i]
+            sentence = test_metdata[i][2]
+            file.write('"%s"\t"%d"\n' % (sentence.raw_sent, prediction))
 
 
 def train():
@@ -71,7 +97,8 @@ def train():
 
     valid_data = train_valid_dataset.take(TAKE_SIZE)
     valid_data = valid_data.padded_batch(BATCH_SIZE, padded_shapes=([-1],[]))
-    test_data = test_dataset.padded_batch(BATCH_SIZE, padded_shapes=([-1],[]))
+    test_data = test_dataset.shuffle(BUFFER_SIZE)
+    test_data = test_data.padded_batch(BATCH_SIZE, padded_shapes=([-1],[]))
 
     print("Loading baseline model")
     # Vocab +2 one for padding and one for <UNK>
@@ -92,8 +119,11 @@ def train():
 
     eval_loss, eval_precision, eval_recall = model.evaluate(test_data)
     print('\nEval Loss: {:.3f}, Eval Precision: {:.3f}, Eval Recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
+
+    analyse(model, test_data, encoder)
     
-    return model
+    return model, test_data, encoder
+
 
 if __name__ == "__main__":
     train()
