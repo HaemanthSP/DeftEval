@@ -15,6 +15,10 @@ def create_task1_model(vocab_size, embedding_dim):
 
 
 def create_task2_model(input_attribs, num_tags):
+    def feature_extractors(inputs, vocab_size, embedding_dim):
+        embedded = layers.Embedding(vocab_size, embedding_dim, embeddings_regularizer=regularizers.l2(0.001))(inputs)
+        return embedded
+
     inputs_list = []
     for idx, input_attrib in enumerate(input_attribs):
         inputs = tf.keras.Input(shape=(input_attrib['dim'],), name="Feature_%s" % (idx+1))
@@ -27,9 +31,10 @@ def create_task2_model(input_attribs, num_tags):
             concate = feature
         else:
             concate = tf.keras.layers.concatenate([concate, feature])
-    bilstm = layers.Bidirectional(layers.LSTM(32, kernel_regularizer=regularizers.l2(0.001), use_bias=False))(concate)
+    bilstm = layers.Bidirectional(layers.LSTM(
+        32, kernel_regularizer=regularizers.l2(0.001), return_sequences=True))(concate)
     dropout = layers.Dropout(0.5)(bilstm)
-    outputs = layers.Dense(num_tags, activation='softmax')(output)
+    outputs = layers.Dense(num_tags, activation='softmax')(dropout)
     model = tf.keras.Model(inputs=inputs_list, outputs=outputs)
 
     return model

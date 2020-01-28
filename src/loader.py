@@ -42,8 +42,11 @@ class Common:
                     new_sentence = False
 
                     lines = file.readlines()
+                    lines_start_idx = 0
+                    if len(lines) > 0 and lines[0] == '\n':
+                        lines_start_idx = 1
 
-                    for i in range(0, len(lines)):
+                    for i in range(lines_start_idx, len(lines)):
                         if num_lines_to_skip > 0:
                             num_lines_to_skip -= 1
                             continue
@@ -394,7 +397,7 @@ class Task2:
 
 
     @staticmethod
-    def encode_primitives(x, y, encoder_x, encoder_y, shapes, add_if_absent):
+    def encode_primitives(x, y, encoder_x, encoder_y, shapes, num_tags, add_if_absent):
         for row_idx, row in enumerate(tqdm(x)):
             new_feature_arrays = [np.zeros(shape, dtype=np.int32)
                                   for shape in shapes]
@@ -411,8 +414,14 @@ class Task2:
                 x[row_idx].update({"Feature_%s" %(idx): feat})
 
         for row_idx, row in enumerate(tqdm(y)):
+            new_label_array = np.zeros(shapes[0], dtype=np.int8)
             for idx, label in enumerate(row):
-                y[row_idx][idx] = encoder_y.number(label, add_if_absent)
+                new_label_array[idx] = encoder_y.number(label, add_if_absent)
+
+            y[row_idx] = new_label_array
+
+        y = [tf.keras.utils.to_categorical(i, num_classes=num_tags + 1) for i in y]
+
 
 
     @staticmethod
@@ -429,20 +438,21 @@ class Task2:
         encoder_x = [Numberer(vocab) for vocab in vocab_x]
         encoder_y = Numberer(vocab_y)
         if max_feature_vector_length > feature_vector_length:
-            print("WARNING: Training data set has sentences that exceed the max. sentence length (%d > %d)" % (max_feature_vector_length, feature_vector_length))
+            print("WARNING: Training data set has sentences that exceed the max. feature vec length (%d > %d)" % (max_feature_vector_length, feature_vector_length))
 
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
-        Task2.encode_primitives(x_train, y_train, encoder_x, encoder_y, feature_vector_shapes, add_if_absent=False)
+        Task2.encode_primitives(x_train, y_train, encoder_x, encoder_y,
+                                feature_vector_shapes, len(vocab_y), add_if_absent=False)
 
         x_train = np.asarray(x_train)
-        y_train = np.array(y_train)
+        y_train = np.asarray(y_train)
 
         def train_generator():
             for x, y in zip(x_train, y_train):
                 yield x, y
 
         types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,])
         train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
 
         return train_dataset, (vocab_x, vocab_y), (encoder_x, encoder_y)
@@ -465,21 +475,22 @@ class Task2:
         # i.e., when feature_vector_length=max_feature_vector_length in train set?
         # it'll get truncated presumably, and so will the output tag sequence
         if max_feature_vector_length > feature_vector_length:
-            print("WARNING: Evaluation data set has sentences that exceed the max. sentence length (%d > %d)" % (max_feature_vector_length, feature_vector_length))
+            print("WARNING: Evaluation data set has sentences that exceed the max. feature vec length (%d > %d)" % (max_feature_vector_length, feature_vector_length))
 
         print("Encoding primitives")
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
-        Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y, feature_vector_shapes, add_if_absent=False)
+        Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y,
+                                feature_vector_shapes, len(vocab_y), add_if_absent=False)
 
         x_test = np.asarray(x_test)
-        y_test = np.array(y_test)
+        y_test = np.asarray(y_test)
 
         def test_generator():
             for x, y in zip(x_test, y_test):
                 yield x, y
 
         types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,])
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
 
         for idx, vocab in enumerate(vocab_x):
