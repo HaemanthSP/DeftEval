@@ -3,6 +3,7 @@ import corpus, features
 from util import Numberer, Preprocessor
 import random
 import functools
+from collections import Counter
 
 import spacy
 from spacy.tokenizer import Tokenizer
@@ -226,6 +227,43 @@ class Common:
                             dataset.term_frequencies[token.text] += 1
 
 
+    @staticmethod
+    def train_val_split(x_data, y_data, val_take_size):
+        combined = list(zip(x_data, y_data))
+        random.shuffle(combined)
+        assert len(combined) > val_take_size
+
+        train_combined = combined[:-val_take_size]
+        val_combined = combined[-val_take_size:]
+
+        train_unzipped = list(zip(*train_combined))
+        train_x, train_y = train_unzipped[0], train_unzipped[1]
+        val_unzipped = list(zip(*val_combined))
+        val_x, val_y = val_unzipped[0], val_unzipped[1]
+
+        return train_x, train_y, val_x, val_y
+
+
+# All members are tuples that hold the values that correspond to the input and the output, i.e., x & y
+# Test metadata is just a list of tuples with extra data for each test instance/data point.
+class TrainMetadata:
+    def __init__(self, encoders, vocabs, vocab_sizes, train_data_class_dist):
+        self.encoders = encoders
+        self.vocabs = vocabs
+        self.vocab_sizes = vocab_sizes
+        self.train_data_class_dist = train_data_class_dist
+
+
+class ClassDistribution:
+    def __init__(self, dist_map):
+        self.class_dists = dist_map
+        self.total_instances = functools.reduce(lambda a, b: a + b, self.class_dists.values())
+
+    def calculate_class_weights(self, weight_fn):
+        return { k: weight_fn(v, self.total_instances) for k,v in self.class_dists.items() }
+
+
+
 class Task1:
     @staticmethod
     def load_evaluation_data(dataset_path):
@@ -285,7 +323,29 @@ class Task1:
 
 
     @staticmethod
-    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length):
+    def calculate_class_distribution(y_data):
+        class_dists = Counter()
+        for y in y_data:
+            class_dists[y] += 1
+        return ClassDistribution(dict(class_dists))
+
+
+    @staticmethod
+    def create_tf_dataset(x_data, y_data, input_primitives):
+        x_data = np.asarray(x_data)
+        y_data = np.asarray(y_data, dtype=np.int8)
+
+        def generator():
+            for x, y in zip(x_data, y_data):
+                yield x, y
+
+        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
+        return tf.data.Dataset.from_generator(generator, types, shapes)
+
+
+    @staticmethod
+    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length, valid_dataset_take_size):
         x_train = []
         y_train = []
         combined_vocabs = [set() for i in input_primitives]
@@ -295,24 +355,17 @@ class Task1:
 
         print("Encoding primitives")
         encoders = [Numberer(vocab) for vocab in combined_vocabs]
-        # For now all features are padded with same length
-        # TODO: Make custom padding length for individual features, account for OOV primitives in the test set
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task1.encode_primitives(x_train, encoders, feature_vector_shapes, add_if_absent=False)
 
-        x_train = np.asarray(x_train)
-        y_train = np.asarray(y_train, dtype=np.int8)
+        x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_take_size)
 
-        def train_generator():
-            for x, y in zip(x_train, y_train):
-                yield x, y
-
-        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
-        train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
+        train_dataset = Task1.create_tf_dataset(x_train, y_train, input_primitives)
+        val_dataset = Task1.create_tf_dataset(x_val, y_val, input_primitives)
+        train_class_dist = Task1.calculate_class_distribution(y_train)
 
         # pack the vocabs and encoders in a tuple to keep the format the same between tasks
-        return train_dataset, (combined_vocabs, ''), (encoders, '')
+        return train_dataset, val_dataset, (combined_vocabs, ''), (encoders, ''), train_class_dist
 
 
     @staticmethod
@@ -326,26 +379,13 @@ class Task1:
         combined_vocabs = combined_vocabs[0]
 
         print("Generating primitives and constructing vocabulary")
-        # FIXME: Should we update the encoder/vocab here with new IDs for test set primitives that are OOV in the train set?
         Task1.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, combined_vocabs, test_metadata)
 
         print("Encoding primitives")
-        # For now all features are padded with same length
-        # TODO: Make custom padding length for individual features, account for OOV primitives in the test set
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task1.encode_primitives(x_test, encoders, feature_vector_shapes, add_if_absent=False)
 
-        x_test = np.asarray(x_test)
-        y_test = np.asarray(y_test, dtype=np.int8)
-
-        def test_generator():
-            for x, y in zip(x_test, y_test):
-                yield x, y
-
-        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([])
-        test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
-
+        test_dataset = Task1.create_tf_dataset(x_test, y_test, input_primitives)
         for idx, vocab in enumerate(combined_vocabs):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
             print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 150)))))
@@ -434,7 +474,32 @@ class Task2:
 
 
     @staticmethod
-    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length):
+    def calculate_class_distribution(y_data):
+        class_dists = Counter()
+        for y in y_data:
+            for timestep in y:
+                class_id = int(np.argmax(timestep))
+                if class_id != 0:
+                    class_dists[class_id] += 1
+        return ClassDistribution(dict(class_dists))
+
+
+    @staticmethod
+    def create_tf_dataset(x_data, y_data, input_primitives):
+        x_data = np.asarray(x_data)
+        y_data = np.asarray(y_data)
+
+        def generator():
+            for x, y in zip(x_data, y_data):
+                yield x, y
+
+        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,None])
+        return tf.data.Dataset.from_generator(generator, types, shapes)
+
+
+    @staticmethod
+    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length, valid_dataset_take_size):
         x_train = []
         y_train = []
         vocab_x = [set() for i in input_primitives]
@@ -453,18 +518,13 @@ class Task2:
         Task2.encode_primitives(x_train, y_train, encoder_x, encoder_y,
                                 feature_vector_shapes, len(vocab_y), add_if_absent=False)
 
-        x_train = np.asarray(x_train)
-        y_train = np.asarray(y_train)
+        x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_take_size)
 
-        def train_generator():
-            for x, y in zip(x_train, y_train):
-                yield x, y
+        train_dataset = Task2.create_tf_dataset(x_train, y_train, input_primitives)
+        val_dataset = Task2.create_tf_dataset(x_val, y_val, input_primitives)
+        train_class_dist = Task2.calculate_class_distribution(y_train)
 
-        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,None])
-        train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
-
-        return train_dataset, (vocab_x, vocab_y), (encoder_x, encoder_y)
+        return train_dataset, val_dataset, (vocab_x, vocab_y), (encoder_x, encoder_y), train_class_dist
 
 
     @staticmethod
@@ -491,17 +551,7 @@ class Task2:
         Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y,
                                 feature_vector_shapes, len(vocab_y), add_if_absent=False)
 
-        x_test = np.asarray(x_test)
-        y_test = np.asarray(y_test)
-
-        def test_generator():
-            for x, y in zip(x_test, y_test):
-                yield x, y
-
-        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,None])
-        test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
-
+        test_dataset = Task2.create_tf_dataset(x_test, y_test, input_primitives)
         for idx, vocab in enumerate(vocab_x):
             print("Vocabulary Size of feat %s: %s" % (idx, len(vocab)))
             print("Random sample: %s" % (str(random.sample(vocab, min(len(vocab), 150)))))

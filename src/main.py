@@ -65,7 +65,7 @@ def evaluate(task, dataset_path, trained_model, train_metadata):
 if __name__ == '__main__':
     current_task = Task.TASK_2
     model_prefix = 'Task2-Test'
-    eval_data_path = '../deft_corpus/evaluation/input/ref/task_2*'
+    eval_data_path = '../deft_corpus/evaluation/input/ref/'
 
     model, metadata = train(current_task, CORPUS_PATH)
     save_model(model, metadata, MODEL_SAVE_PATH, model_prefix)
