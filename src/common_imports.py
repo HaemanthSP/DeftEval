@@ -11,7 +11,7 @@ import numpy as np
 from pathlib import Path
 
 FORCE_TENSORFLOW_CPU = True
-TENSORFLOW_LOGGING = 1  # 0 - disabled, 1 - default, 2 - verbose
+TENSORFLOW_LOGGING = 0  # 0 - disabled, 1 - default, 2 - verbose
 
 if TENSORFLOW_LOGGING == 0:
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
@@ -38,11 +38,6 @@ print('\n\n')
 print('Tensorflow Version: %s ' % (tf.__version__))
 print('Tensorflow-Addons Version: %s' % (tfa.__version__))
 print('\n\n')
-
-import spacy
-
-spacy.prefer_gpu()
-NLP = spacy.load("en_core_web_lg")
 
 
 class Task(IntEnum):

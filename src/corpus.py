@@ -5,10 +5,11 @@ class Token:
     """
     Represents an individual token in a sentence
     """
-    def __init__(self, token, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
+    def __init__(self, token, filename=None, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
         self.token = token
-        self.start_char = start_char
-        self.end_char = end_char
+        self.filename = filename
+        self.start_char = int(start_char)
+        self.end_char = int(end_char)
         self.tag = tag
         self.tag_id = tag_id
         self.root_id = root_id
@@ -26,8 +27,8 @@ class Sentence:
         self.nlp_annotations = None
         self.raw_sent = raw_sent
 
-    def add_token(self, token, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
-        new_token = Token(token, start_char, end_char, tag, tag_id, root_id, relation)
+    def add_token(self, token, filename=None, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
+        new_token = Token(token, filename, start_char, end_char, tag, tag_id, root_id, relation)
         self.tokens.append(new_token)
 
     def len(self):

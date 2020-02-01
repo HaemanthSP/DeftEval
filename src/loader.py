@@ -2,9 +2,15 @@ from common_imports import *
 import corpus, features
 from util import Numberer, Preprocessor
 import random
+import functools
 
+import spacy
 from spacy.tokenizer import Tokenizer
 from spacy.lang.en import English
+
+
+spacy.prefer_gpu()
+NLP = spacy.load("en_core_web_lg")
 
 
 class Common:
@@ -81,7 +87,6 @@ class Common:
 
                             # Task 1 needs special casing, the rest share the same parsing routine as the training data
                             if task == Task.TASK_1:
-                                # FIXME: The first token is assigned as sentence. This seems to be the cause for the issue.
                                 sentence = Preprocessor.remove_quotes(splits[0])
                                 sent_wrapper = corpus.Sentence(sent_id=i,line_num=i,raw_sent=sentence)
                                 for token in tokenizer(sentence):
@@ -168,6 +173,7 @@ class Common:
                             # the latter annotations are only available in the train/dev sets
                             current_sentence.add_token(
                                 token=splits[0],
+                                filename=splits[1],
                                 start_char=splits[2],
                                 end_char=splits[3],
                                 tag=splits[4] if len(splits) > 4 else None,
@@ -194,6 +200,16 @@ class Common:
 
     @staticmethod
     def preprocess_dataset(task, dataset, use_dummy_nlp_annotations=False):
+        def perform_nlp(source_sent, text):
+            def default_tokenizer(source_sent, text):
+                # just use the data pre-tokenized data
+                return spacy.tokens.Doc(NLP.vocab, [t.token for t in source_sent.tokens])
+
+            tokenizer_fn_wrapper = functools.partial(default_tokenizer, sent)
+            NLP.tokenizer = tokenizer_fn_wrapper
+            return NLP(text, disable=['ner'])
+
+
         for file in tqdm(dataset.files):
             for context in file.contexts:
                 for sent in context.sentences:
@@ -201,7 +217,7 @@ class Common:
                     if Common.SKIP_NLP or use_dummy_nlp_annotations:
                         sent.nlp_annotations = []
                     else:
-                        sent.nlp_annotations = NLP(preprocessed_sent, disable=['ner'])
+                        sent.nlp_annotations = perform_nlp(sent, preprocessed_sent)
 
                     for token in sent.nlp_annotations:
                         if features.LOWERCASE_TOKENS:
@@ -375,11 +391,6 @@ class Task2:
 
                 for idx, primitive in enumerate(input_primitives):
                     feature_input = features.Task2.get_feature_input(context, primitive, dataset.term_frequencies)
-                    if len(feature_input) != len(labels):
-                        debugbreak()
-                        # print("Length: %s, %s" % (len(feature_input), len(labels)))
-                        # print(feature_input)
-                        # print([t.token for sent in context.sentences for t in sent.tokens])
                     assert len(feature_input) == len(labels)
 
                     vocab_x[idx].update(feature_input)
@@ -414,14 +425,12 @@ class Task2:
                 x[row_idx].update({"Feature_%s" %(idx): feat})
 
         for row_idx, row in enumerate(tqdm(y)):
-            new_label_array = np.zeros(shapes[0], dtype=np.int8)
+            new_label_array = np.zeros([shapes[0], num_tags + 1], dtype=np.int8)
             for idx, label in enumerate(row):
-                new_label_array[idx] = encoder_y.number(label, add_if_absent)
+                tag_id = encoder_y.number(label, add_if_absent)
+                new_label_array[idx][tag_id] = 1
 
             y[row_idx] = new_label_array
-
-        y = [tf.keras.utils.to_categorical(i, num_classes=num_tags + 1) for i in y]
-
 
 
     @staticmethod
@@ -452,7 +461,7 @@ class Task2:
                 yield x, y
 
         types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,])
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,None])
         train_dataset = tf.data.Dataset.from_generator(train_generator, types, shapes)
 
         return train_dataset, (vocab_x, vocab_y), (encoder_x, encoder_y)
@@ -490,7 +499,7 @@ class Task2:
                 yield x, y
 
         types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
-        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,])
+        shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,None])
         test_dataset = tf.data.Dataset.from_generator(test_generator, types, shapes)
 
         for idx, vocab in enumerate(vocab_x):

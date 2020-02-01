@@ -24,8 +24,12 @@ def train(task, dataset_path):
     trained_model = TASK_REGISTRY[task].train(train_data, valid_data, train_metadata)
 
     print("Evaluating model on dev set")
-    eval_loss, eval_precision, eval_recall = trained_model.evaluate(test_data)
-    print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
+    if task == Task.TASK_1:
+        eval_loss, eval_precision, eval_recall = trained_model.evaluate(test_data)
+        print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
+    elif task == Task.TASK_2:
+        eval_loss, eval_acc = trained_model.evaluate(test_data)
+        print('\nEval loss: {:.3f}, Eval accuracy: {:.3f}'.format(eval_loss, eval_acc))
 
     return trained_model, train_metadata
 
@@ -53,7 +57,7 @@ def evaluate(task, dataset_path, trained_model, train_metadata):
 
     print("Evaluating model")
     results_path = EVAL_RESULTS_PATH + '/TASK_' + str(int(task)) + '_RESULTS.deft'
-    TASK_REGISTRY[task].evaluate(trained_model, test_data, test_metadata, results_path)
+    TASK_REGISTRY[task].evaluate(trained_model, test_data, test_metadata, train_metadata, results_path)
 
     print("Wrote results to %s" % (results_path))
 
@@ -61,7 +65,7 @@ def evaluate(task, dataset_path, trained_model, train_metadata):
 if __name__ == '__main__':
     current_task = Task.TASK_2
     model_prefix = 'Task2-Test'
-    eval_data_path = '../deft_corpus/evaluation/input/ref'
+    eval_data_path = '../deft_corpus/evaluation/input/ref/task_2*'
 
     model, metadata = train(current_task, CORPUS_PATH)
     save_model(model, metadata, MODEL_SAVE_PATH, model_prefix)

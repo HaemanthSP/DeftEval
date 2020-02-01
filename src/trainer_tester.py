@@ -26,7 +26,7 @@ class Common:
         raw_test_dataset = loader.Common.load_deft_data(task, os.path.join(dataset_path, 'dev'))
 
         print("Preprocessing dataset")
-        use_dummy_nlp_annotations = len(input_primitives) == 1 and input_primitives[0] == InputPrimitive.TOKEN
+        use_dummy_nlp_annotations = False
         loader.Common.preprocess_dataset(task, raw_train_dataset, use_dummy_nlp_annotations)
         loader.Common.preprocess_dataset(task, raw_test_dataset, use_dummy_nlp_annotations)
 
@@ -188,7 +188,7 @@ class Task1:
 
 
     @staticmethod
-    def evaluate(model, test_data, test_metdata, results_path):
+    def evaluate(model, test_data, test_metdata, train_metadata, results_path):
         # test_metadata = [(file, context, sent, label)]
         predictions = model.predict(test_data)
         assert len(predictions) == len(test_metdata)
@@ -202,10 +202,11 @@ class Task1:
 
 class Task2:
     FEATURE_VECTOR_LENGTH = 350
-    EPOCHS = 1
-    INPUT_PRIMITIVES = [InputPrimitive.TOKEN]
-                       #  InputPrimitive.DEP]
-    EMBEDDING_DIM = 128
+    EPOCHS = 10
+    INPUT_PRIMITIVES = [InputPrimitive.POS,
+                        InputPrimitive.DEP,
+                        InputPrimitive.HEAD]
+    EMBEDDING_DIM = 64
     LEARNING_RATE = 0.001
     ES_MIN_DELTA = 0.001
     ES_PATIENCE = 5
@@ -224,8 +225,8 @@ class Task2:
             { 'dim': Task2.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task2.EMBEDDING_DIM } for i in vocab_size_x]
         model = baseline.create_task2_model(model_gen_params, vocab_size_y)
         model.compile(loss='categorical_crossentropy',
-                    optimizer=optimizers.RMSprop(Task2.LEARNING_RATE),
-                    metrics=[metrics.Precision(), metrics.Recall()])
+                    optimizer=optimizers.Adam(Task2.LEARNING_RATE),
+                    metrics=[metrics.CategoricalAccuracy()])
         model.summary()
 
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
@@ -242,6 +243,33 @@ class Task2:
     @staticmethod
     def prepare_evaluation_data(dataset_path, train_metadata):
         return Common.prepare_evaluation_data(Task.TASK_2, dataset_path, Task2.INPUT_PRIMITIVES, train_metadata)
+
+
+    @staticmethod
+    def evaluate(model, test_data, test_metdata, train_metadata, results_path):
+        # test_metadata = [(file, context, labels)]
+        predictions = model.predict(test_data)
+        assert len(predictions) == len(test_metdata)
+        # train_metadata = (encoders, vocabs, (vocab_size_x, vocab_size_y))
+        tag_encoder = train_metadata[0][1]
+
+        with open(results_path, mode='w', encoding='UTF-8') as file:
+            for i in range(0, len(predictions)):
+                prediction = predictions[i]
+                context = test_metdata[i][1]
+                assert context.len() == 1
+                sentence = context.sentences[0]
+
+                for j in range(0, len(sentence.tokens)):
+                    token = sentence.tokens[j]
+                    logits = prediction[j]
+                    tag_id = tf.argmax(logits).numpy()
+                    tag = tag_encoder.value(tag_id)
+
+                    file.write('%s\t%s\t%d\t%d\t%s\n' %
+                                (token.token, token.filename, token.start_char, token.end_char, tag))
+
+                file.write('\n')
 
 
 class Task3:
