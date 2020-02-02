@@ -10,6 +10,7 @@ import tensorflow_text as tft
 import tensorflow_datasets as tfds
 from tensorflow.keras import optimizers, metrics
 
+
 from model import experimental
 
 #Globals
@@ -19,11 +20,7 @@ BATCH_SIZE = 64
 EPOCHS = 30
 ES_MIN_DELTA = 0.001
 ES_PATIENCE = 5
-
-tokenizer = tft.WhitespaceTokenizer()
-# TODO: implement tokenizer wrapper
-def tokenizer_wrapper():
-    return 
+RESERVED = [',', '.', '/', '(', ')', '-', '_', ';', ':', '?', '!', '[', ']']
 
 
 def prepare_data(path, encoder=None):
@@ -32,8 +29,10 @@ def prepare_data(path, encoder=None):
     df = pd.read_csv(path, sep="\t", names=["Sentence", "Label"])
     target = df.pop("Label")
 
-    #
+    # data = tokenize(df.values) 
+    
     raw_dataset = tf.data.Dataset.from_tensor_slices((df.values, target.values))
+    # TODO: Do a preprocessing
 
     vocab_size = None
     if not encoder: 
@@ -45,7 +44,11 @@ def prepare_data(path, encoder=None):
         print("Vocabulary Size: ", vocab_size)
         print(random.sample(vocabulary_set, 20))
 
-        encoder = tfds.features.text.TokenTextEncoder(vocabulary_set, lowercase=True, strip_vocab=False)
+        encoder = tfds.features.text.TokenTextEncoder(
+            vocabulary_set,
+            tokenizer=tfds.features.text.Tokenizer(reserved_tokens=RESERVED),
+            lowercase=True,
+            strip_vocab=False)
         example_text = next(iter(raw_dataset))[0].numpy()
         print("Example text")
         print(example_text)
