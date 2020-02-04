@@ -145,3 +145,15 @@ Attempting to use a fully convolutional network
 Epoch 11/100
 60/60 [==============================] - 49s 821ms/step - loss: 0.4392 - precision: 0.8957 - recall: 0.7740 - val_loss: 0.7434 - val_precision: 0.6178 - val_recall: 0.7429
 Eval loss: 0.602, Eval precision: 0.822, Eval recall: 0.638
+
+
+# After simplification
+
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
+| ReIncBase| W128, BiLstm(64)D[100, 50, 1] | 8ES(5) | 0.1092 | 0.9337 | 0.9304 | 1.0690 | 0.7190 | 0.5006 | 0.468 | 0.651 | 0.686 |
+| ReIncBase| W128, BiLstm(64)D[100, 50, 1] | 8ES(5) | 0.1092 | 0.9337 | 0.9304 | 1.0690 | 0.7190 | 0.5006 | 0.446 | 0.719 | 0.635 |
+
+Punctuation based definitions are missed: Should preserve punctuations
+Sub-patterns in the long sentences are mis-leading.
+Definition like structure triggers it as definition: Could be rectified by use of POS
