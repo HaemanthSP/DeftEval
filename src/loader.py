@@ -493,7 +493,7 @@ class Task2:
             for x, y in zip(x_data, y_data):
                 yield x, y
 
-        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.int8
+        types = {"Feature_"+str(i+1): tf.int32 for i, _ in enumerate(input_primitives)}, tf.float32
         shapes = {"Feature_"+str(i+1): tf.TensorShape([None,]) for i, _ in enumerate(input_primitives)}, tf.TensorShape([None,None])
         return tf.data.Dataset.from_generator(generator, types, shapes)
 

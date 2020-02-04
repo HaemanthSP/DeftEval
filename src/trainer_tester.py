@@ -3,6 +3,7 @@ import loader
 from loader import TrainMetadata
 from model import experimental, baseline
 from features import InputPrimitive
+import tensorflow.keras.backend as K
 
 
 class Common:
@@ -185,15 +186,48 @@ class Task2:
     def prepare_training_data(dataset_path):
         return Common.prepare_training_data(Task.TASK_2, dataset_path, Task2.INPUT_PRIMITIVES)
 
-
     @staticmethod
     def train(train_data, valid_data, train_metadata):
+        # https://gist.github.com/wassname/ce364fddfc8a025bfab4348cf5de852d
+        def weighted_categorical_crossentropy(weights):
+            """
+            A weighted version of keras.objectives.categorical_crossentropy
+
+            Variables:
+                weights: numpy array of shape (C,) where C is the number of classes
+
+            Usage:
+                weights = np.array([0.5,2,10]) # Class one at 0.5, class 2 twice the normal weights, class 3 10x.
+                loss = weighted_categorical_crossentropy(weights)
+                model.compile(loss=loss,optimizer='adam')
+            """
+
+            weights = K.variable(weights)
+
+            def loss(y_true, y_pred):
+                # scale predictions so that the class probas of each sample sum to 1
+                y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
+                # clip to prevent NaN's and Inf's
+                y_pred = K.clip(y_pred, K.epsilon(), 1 - K.epsilon())
+                # calc
+                loss = y_true * K.log(y_pred) * weights
+                loss = -K.sum(loss, -1)
+                return loss
+
+            return loss
+
+
         vocab_size_x = train_metadata.vocab_sizes[0]
         vocab_size_y = train_metadata.vocab_sizes[1]
         model_gen_params = [
             { 'dim': Task2.FEATURE_VECTOR_LENGTH, 'vocab_size': i, 'embedding_dim': Task2.EMBEDDING_DIM } for i in vocab_size_x]
         model = baseline.create_task2_model(model_gen_params, vocab_size_y)
-        model.compile(loss='categorical_crossentropy',
+
+        class_weights_array = np.ones(shape=[vocab_size_y])
+        for k,v in Common.calculate_class_weights(train_metadata.train_data_class_dist).items():
+            class_weights_array[k] = v
+
+        model.compile(loss=weighted_categorical_crossentropy(class_weights_array),
                     optimizer=optimizers.Adam(Task2.LEARNING_RATE),
                     metrics=[metrics.CategoricalAccuracy()])
         model.summary()
@@ -204,8 +238,7 @@ class Task2:
         history = model.fit(train_data,
                 epochs=Task2.EPOCHS,
                 validation_data=valid_data,
-                callbacks=[Common.get_tensorboard_callback(), early_stopping_callback],
-                class_weight=Common.calculate_class_weights(train_metadata.train_data_class_dist))
+                callbacks=[Common.get_tensorboard_callback(), early_stopping_callback])
 
         return model
 
