@@ -507,18 +507,11 @@ class Task2:
         with open(out_folder + '/' + filename + '.words.txt', 'w') as words_file:
             with open(out_folder + '/' + filename + '.tags.txt', 'w') as tags_file:
                 for i in range(0, len(x)):
-                    seq = next(iter(x[i].values())).tolist()
-                    seq = list(filter(lambda a: a != 0, seq))
-                    tags = []
-                    for j in y[i]:
-                        tags.append(np.argmax(j))
+                    seq = x[i][0]
+                    tags = y[i]
 
-                    tags = tags[:len(seq)]
                     vocab_x.update(set(seq))
                     vocab_y.update(set(tags))
-
-                    seq = list(map(lambda a: str(a), seq))
-                    tags = list(map(lambda a: str(a), tags))
 
                     words_file.write(' '.join(seq).strip() + '\n')
                     tags_file.write(' '.join(tags).strip() + '\n')
@@ -541,6 +534,7 @@ class Task2:
 
         print("Generating primitives and constructing vocabulary")
         max_feature_vector_length = Task2.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, vocab_x, vocab_y)
+        Task2.create_ner_model_dataset(x_train, y_train, '../ner_dataset/', 'train')
 
         print("Encoding primitives")
         encoder_x = [Numberer(vocab) for vocab in vocab_x]
@@ -553,8 +547,6 @@ class Task2:
                                 feature_vector_shapes, len(vocab_y), add_if_absent=False)
 
         x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_take_size)
-        Task2.create_ner_model_dataset(x_train, y_train, '../ner_dataset/', 'train')
-        Task2.create_ner_model_dataset(x_val, y_val, '../ner_dataset/', 'testa')
 
         train_dataset = Task2.create_tf_dataset(x_train, y_train, input_primitives)
         val_dataset = Task2.create_tf_dataset(x_val, y_val, input_primitives)
@@ -576,6 +568,8 @@ class Task2:
 
         print("Generating primitives and constructing vocabulary")
         max_feature_vector_length = Task2.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, vocab_x, vocab_y, test_metadata)
+        Task2.create_ner_model_dataset(x_test, y_test, '../ner_dataset/', 'test')
+
         # FIXME: what happens when the test set has a sentence longer than all the sents in the train set,
         # i.e., when feature_vector_length=max_feature_vector_length in train set?
         # it'll get truncated presumably, and so will the output tag sequence
@@ -586,7 +580,6 @@ class Task2:
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y,
                                 feature_vector_shapes, len(vocab_y), add_if_absent=False)
-        Task2.create_ner_model_dataset(x_test, y_test, '../ner_dataset/', 'testb')
 
         test_dataset = Task2.create_tf_dataset(x_test, y_test, input_primitives)
         for idx, vocab in enumerate(vocab_x):

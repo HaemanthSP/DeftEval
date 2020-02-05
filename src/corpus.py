@@ -15,6 +15,8 @@ class Token:
         self.root_id = root_id
         self.relation = relation
 
+        self.tag = self.tag.replace(' ', '-')
+
 
 class Sentence:
     """
