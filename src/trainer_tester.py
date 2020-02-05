@@ -175,7 +175,7 @@ class Task1:
 class Task2:
     FEATURE_VECTOR_LENGTH = 350
     EPOCHS = 50
-    INPUT_PRIMITIVES = [InputPrimitive.DEP]
+    INPUT_PRIMITIVES = [InputPrimitive.TOKEN]
     EMBEDDING_DIM = 32
     LEARNING_RATE = 0.05
     ES_MIN_DELTA = 0.001

@@ -468,6 +468,7 @@ class Task2:
             new_label_array = np.zeros([shapes[0], num_tags + 1], dtype=np.int8)
             for idx, label in enumerate(row):
                 tag_id = encoder_y.number(label, add_if_absent)
+                assert tag_id != 0
                 new_label_array[idx][tag_id] = 1
 
             y[row_idx] = new_label_array
@@ -499,6 +500,39 @@ class Task2:
 
 
     @staticmethod
+    def create_ner_model_dataset(x, y, out_folder, filename):
+        vocab_x = set()
+        vocab_y = set()
+
+        with open(out_folder + '/' + filename + '.words.txt', 'w') as words_file:
+            with open(out_folder + '/' + filename + '.tags.txt', 'w') as tags_file:
+                for i in range(0, len(x)):
+                    seq = next(iter(x[i].values())).tolist()
+                    seq = list(filter(lambda a: a != 0, seq))
+                    tags = []
+                    for j in y[i]:
+                        tags.append(np.argmax(j))
+
+                    tags = tags[:len(seq)]
+                    vocab_x.update(set(seq))
+                    vocab_y.update(set(tags))
+
+                    seq = list(map(lambda a: str(a), seq))
+                    tags = list(map(lambda a: str(a), tags))
+
+                    words_file.write(' '.join(seq).strip() + '\n')
+                    tags_file.write(' '.join(tags).strip() + '\n')
+
+        with open(out_folder + '/vocab.words.txt', 'w') as f:
+            for i in vocab_x:
+                f.write(str(i) + '\n')
+
+        with open(out_folder + '/vocab.tags.txt', 'w') as f:
+            for i in vocab_y:
+                f.write(str(i) + '\n')
+
+
+    @staticmethod
     def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length, valid_dataset_take_size):
         x_train = []
         y_train = []
@@ -519,6 +553,8 @@ class Task2:
                                 feature_vector_shapes, len(vocab_y), add_if_absent=False)
 
         x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_take_size)
+        Task2.create_ner_model_dataset(x_train, y_train, '../ner_dataset/', 'train')
+        Task2.create_ner_model_dataset(x_val, y_val, '../ner_dataset/', 'testa')
 
         train_dataset = Task2.create_tf_dataset(x_train, y_train, input_primitives)
         val_dataset = Task2.create_tf_dataset(x_val, y_val, input_primitives)
@@ -550,6 +586,7 @@ class Task2:
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task2.encode_primitives(x_test, y_test, encoder_x, encoder_y,
                                 feature_vector_shapes, len(vocab_y), add_if_absent=False)
+        Task2.create_ner_model_dataset(x_test, y_test, '../ner_dataset/', 'testb')
 
         test_dataset = Task2.create_tf_dataset(x_test, y_test, input_primitives)
         for idx, vocab in enumerate(vocab_x):
