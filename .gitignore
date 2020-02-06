@@ -106,5 +106,5 @@ venv.bak/
 src/logs/
 logs/
 saved_models/
-ner_dataset/
+ner_dataset/results/
 .keep
