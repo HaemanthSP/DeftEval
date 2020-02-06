@@ -178,7 +178,8 @@ def run(data_folder, results_folder):
                                    params, shuffle_and_repeat=True)
     eval_inpf = functools.partial(input_fn, fwords('test'), ftags('test'))
 
-    cfg = tf.estimator.RunConfig(save_checkpoints_secs=90000, save_checkpoints_steps=None)
+    cfg = tf.estimator.RunConfig(save_checkpoints_secs=90000, save_checkpoints_steps=None,
+                                log_step_count_steps=1, save_summary_steps=10)
     estimator = tf.estimator.Estimator(model_fn, results_folder, cfg, params)
     Path(estimator.eval_dir()).mkdir(parents=True, exist_ok=True)
     hook = tf.contrib.estimator.stop_if_no_increase_hook(
