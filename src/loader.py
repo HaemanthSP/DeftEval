@@ -516,11 +516,11 @@ class Task2:
                     words_file.write(' '.join(seq).strip() + '\n')
                     tags_file.write(' '.join(tags).strip() + '\n')
 
-        with open(out_folder + '/vocab.words.txt', 'w') as f:
+        with open(out_folder + '/' + filename + '.vocab.words.txt', 'w') as f:
             for i in vocab_x:
                 f.write(str(i) + '\n')
 
-        with open(out_folder + '/vocab.tags.txt', 'w') as f:
+        with open(out_folder + '/' + filename + '.vocab.tags.txt', 'w') as f:
             for i in vocab_y:
                 f.write(str(i) + '\n')
 
