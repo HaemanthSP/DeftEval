@@ -154,6 +154,39 @@ Eval loss: 0.602, Eval precision: 0.822, Eval recall: 0.638
 | ReIncBase| W128, BiLstm(64)D[100, 50, 1] | 8ES(5) | 0.1092 | 0.9337 | 0.9304 | 1.0690 | 0.7190 | 0.5006 | 0.468 | 0.651 | 0.686 |
 | ReIncBase| W128, BiLstm(64)D[100, 50, 1] | 8ES(5) | 0.1092 | 0.9337 | 0.9304 | 1.0690 | 0.7190 | 0.5006 | 0.446 | 0.719 | 0.635 |
 
-Punctuation based definitions are missed: Should preserve punctuations
-Sub-patterns in the long sentences are mis-leading.
-Definition like structure triggers it as definition: Could be rectified by use of POS
+
+- [x] Punctuation based definitions are missed: Should preserve punctuations
+- [ ] Definition like structure triggers it as definition: Could be rectified by use of POS
+- Sub-patterns in the long sentences are mis-leading.
+
+
+|  Model Name | Model | Epochs | Train Loss | Train Precision| Train Recall| Val. Loss| Val. Precision| Val. Recall| Test Loss | Test Precision | Test Recall |
+|-------|:---------:|:---------:|:---------:|:---------:|:-----:|:---------:|:-----:|:---------:|:---------:|:---------:|:---------:|
+| ReIncBase| W128, BiLstm(64)D[100, 50, 1] | 8ES(5) | 0.1228 | 0.9261 | 0.9267 | 1.0549 | 0.7161 | 0.4961 | 0.479 | 0.736 | 0.467 |
+Epoch 8/30
+241/241 [==============================] - 23s 95ms/step - loss: 0.1228 - precision: 0.9261 - recall: 0.9267 - val_loss: 1.0549 - val_precision: 0.7161 - val_recall: 0.4961
+14/14 [==============================] - 0s 34ms/step - loss: 0.4790 - precision: 0.7356 - recall: 0.4672
+
+Eval Loss: 0.479, Eval Precision: 0.736, Eval Recall: 0.467
+
+',', '.', '/', '(', ')', '-', '_', ';', ':', '?', '!', '[', ']'
+Including all the punctuations drastically affects the result.
+
+I suppose punctuation without support of pos tags confused the model
+
+Adding POS harms the results.. Concatenating the sequence of tags after the sentence
+Epoch 7/30
+241/241 [==============================] - 77s 318ms/step - loss: 0.0910 - precision: 0.9508 - recall: 0.9539 - val_loss: 1.0400 - val_precision: 0.6560 - val_recall: 0.6343
+14/14 [==============================] - 1s 99ms/step - loss: 0.4725 - precision: 0.7151 - recall: 0.4489
+
+Eval Loss: 0.473, Eval Precision: 0.715, Eval Recall: 0.449 
+
+But adding word and pos as pair boosts
+Epoch 8/30
+241/241 [==============================] - 95s 393ms/step - loss: 0.0846 - precision: 0.9555 - recall: 0.9581 - val_loss: 1.0319 - val_precision: 0.6553 - val_recall: 0.6575
+14/14 [==============================] - 2s 119ms/step - loss: 0.4606 - precision: 0.7026 - recall: 0.5949
+
+Eval Loss: 0.461, Eval Precision: 0.703, Eval Recall: 0.595
+
+- [ ] Need to add class weights
+- [ ] Also glove

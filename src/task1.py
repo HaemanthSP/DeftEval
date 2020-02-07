@@ -5,22 +5,36 @@ import itertools
 import spacy
 import pandas as pd
 from tqdm import tqdm
+from tensorflow.keras import optimizers, metrics
 import tensorflow as tf
 import tensorflow_text as tft
 import tensorflow_datasets as tfds
-from tensorflow.keras import optimizers, metrics
 
 
 from model import experimental
 
 #Globals
+NLP = spacy.load('en_core_web_lg', parser=False, entity=False)
 TAKE_SIZE = 2000
 BUFFER_SIZE = 10000
 BATCH_SIZE = 64
 EPOCHS = 30
 ES_MIN_DELTA = 0.001
 ES_PATIENCE = 5
-RESERVED = [',', '.', '/', '(', ')', '-', '_', ';', ':', '?', '!', '[', ']']
+RESERVED = [',', '.', '"', "'", '/', '(', ')', '-', '_', ';', ':', '?', '!', '[', ']']
+
+
+def append_pos(sentence):
+    tokens = []
+    pos = []
+    for token in NLP(sentence, disable=["parser", "ner"]):
+        tokens.append(token.text)
+        # pos.append(token.text if token.pos_ == "PUNCT" else token.pos_)
+        if token.pos_ != "PUNCT":
+            tokens.append(token.pos_)
+    
+    # return " ".join(tokens + pos)
+    return " ".join(tokens)
 
 
 def prepare_data(path, encoder=None):
@@ -30,15 +44,16 @@ def prepare_data(path, encoder=None):
     target = df.pop("Label")
 
     # data = tokenize(df.values) 
+    df["withpos"] = df.apply(lambda row: append_pos(row["Sentence"]), axis=1)
     
-    raw_dataset = tf.data.Dataset.from_tensor_slices((df.values, target.values))
+    raw_dataset = tf.data.Dataset.from_tensor_slices((df["withpos"].values, target.values))
     # TODO: Do a preprocessing
 
     vocab_size = None
     if not encoder: 
         print("\nTokenization...")
         tokenizer = tft.WhitespaceTokenizer()
-        tokens_list = tokenizer.tokenize(df["Sentence"].to_list()).to_list()
+        tokens_list = tokenizer.tokenize(df["withpos"].to_list()).to_list()
         vocabulary_set = set([x.decode('utf-8').lower() for x in itertools.chain.from_iterable(tokens_list)])
         vocab_size = len(vocabulary_set)
         print("Vocabulary Size: ", vocab_size)
@@ -52,13 +67,13 @@ def prepare_data(path, encoder=None):
         example_text = next(iter(raw_dataset))[0].numpy()
         print("Example text")
         print(example_text)
-        encoded_example = encoder.encode(example_text[0])
+        encoded_example = encoder.encode(example_text)
         print("Encoded Example text")
         print(encoded_example)
 
 
     def encode(text_tensor, label):
-        encoded_text = encoder.encode(text_tensor.numpy()[0])
+        encoded_text = encoder.encode(text_tensor.numpy())
         return encoded_text, label
 
     def encode_map_fn(text, label):
@@ -109,6 +124,8 @@ def train():
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
                   metrics=[metrics.Precision(), metrics.Recall()])
+            
+    model.summary()
 
     log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
