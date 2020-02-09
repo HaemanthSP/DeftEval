@@ -1,0 +1,218 @@
+from argparse import ArgumentParser
+import sys
+sys.path.append('src')
+import numpy as np
+from collections import defaultdict
+import spacy
+import _data_manager
+import os
+from sklearn.utils import shuffle
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import precision_score as precision
+from sklearn.metrics import recall_score as recall
+from sklearn.metrics import f1_score
+
+def get_dependency_repr(sent_list, modelwords, vocabwords, dimwords, maxlen, deps2ids):
+	print('Vectorizing dependencies')
+	out_wordpairs=[]
+	out_deps=[]
+	for idx,sent in enumerate(sent_list):
+		if idx % 500 == 0:
+			print('Done ',idx,' of ',len(sent_list))
+		sent=nlp(sent)
+		word_pairs,pos_pairs,dep_pairs=_data_manager.parse_sent(sent)
+		word_pairs_matrix=_data_manager.vectorize_wordpairs(word_pairs,modelwords,vocabwords,dimwords,maxlen,mode='avg')
+		dep_labels=[j for i,j in dep_pairs]
+		labels_matrix=_data_manager.vectorize_deprels(dep_labels,maxlen,dimwords,deps2ids)
+		out_wordpairs.append(word_pairs_matrix)
+		out_deps.append(labels_matrix)
+	out_wordpairs=np.array(out_wordpairs)
+	out_deps=np.array(out_deps)
+	return out_wordpairs,out_deps
+
+
+def pad_words(tokens,maxlen,append_tuple=False):
+	if len(tokens) > maxlen:
+		return tokens[:maxlen]
+	else:
+		dif=maxlen-len(tokens)
+		for i in range(dif):
+			if append_tuple == False:
+				tokens.append('UNK')
+			else:
+				tokens.append(('UNK','UNK'))
+		return tokens
+
+
+if __name__ == '__main__':
+
+	parser = ArgumentParser()
+
+	parser.add_argument('-d', '--data-folder', help='Data folder', required=True,
+		choices=['data/wcl_datasets_v1.2/', 'data/W00_dataset/'])
+	parser.add_argument('-wv', '--word-vectors', help='Vector file with words', required=True)
+	parser.add_argument('-dep', '--dependencies', help='Option for using dependencies (m=mean, l=label, n=none)', required=True,
+		choices=['ml', 'm', 'n'])
+
+	args = vars(parser.parse_args())
+
+	print('Loading spacy')
+	nlp=spacy.load('en_core_web_lg')
+
+	### LOAD EMBEDDINGS ###
+	if args['word_vectors'] is not None:
+		embeddings=args['word_vectors']
+		modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embeddings)
+
+	# load datasets
+	# wcl is dataset of wikipedia defs (Navigli and Velardi, 2010 ACL)
+
+	if args['data_folder']=='data/wcl_datasets_v1.2/':
+		name='wcl'
+		dataset=_data_manager.Dataset(args['data_folder'],name)
+		dataset.load_wcl()
+	elif args['data_folder']=='data/W00_dataset/':
+		name='w00'
+		dataset=_data_manager.Dataset(args['data_folder'],name)
+		dataset.load_w00()
+
+
+	# load labels as np arrays
+	y=np.array(dataset.labels)
+
+	# preprocess
+	# get token and dependencies (head, modifier) maxlens and pos and dep ids
+	maxlen=0
+	maxlen_dep=0
+	# label to integer mapping
+	deps2ids={}
+	depid=0
+
+	print('Getting maxlen')
+	for idx,sent in enumerate(dataset.instances):
+		if idx % 500 == 0:
+			print('Done ',idx,' of ',len(dataset.instances))
+		try:
+			sent_maxlen_dep=0
+			doc=nlp(sent)
+			if len(doc) > maxlen:
+				maxlen=len(doc)
+			for token in doc:
+				if not token.dep_ in deps2ids:
+					deps2ids[token.dep_]=depid
+					depid+=1
+				for c in token.children:
+					if not c.dep_ in deps2ids:
+						deps2ids[c.dep_]=depid
+						depid+=1
+					sent_maxlen_dep+=1
+			if sent_maxlen_dep > maxlen_dep:
+				maxlen_dep=sent_maxlen_dep
+		except UnicodeDecodeError:
+			print( 'Cant process sentence: ',sent,' with label: ',label)
+
+	maxlen=max(maxlen,maxlen_dep)
+
+	print('Maxlen: ',maxlen)
+
+	ids2deps=dict([(idx,dep) for dep,idx in deps2ids.items()])
+
+	# vectorize wcl, needs to be done in second pass to have maxlen
+	print('Vectorizing wcl dataset')
+	X=[]
+	for idx,sent in enumerate(dataset.instances):
+		if idx % 500 == 0:
+			print('Done ',idx,' of ',len(dataset.instances))
+		tokens=[tok.orth_ for tok in nlp(sent.lower())]
+		sent_matrix=[]
+		for token in pad_words(tokens,maxlen,append_tuple=False):
+			if token in vocabwords:
+				# each word vector is embedding dim + length of one-hot encoded label
+				vec=np.concatenate([modelwords[token],np.zeros(len(ids2deps)+1)])
+				sent_matrix.append(vec)
+			else:
+				sent_matrix.append(np.zeros(dimwords+len(ids2deps)+1))
+		sent_matrix=np.array(sent_matrix)
+		X.append(sent_matrix)
+
+	X=np.array(X)
+
+	X_wordpairs=[]
+	X_deps=[]
+	for idx,sent in enumerate(dataset.instances):
+		if idx % 10 == 0:
+			print('Done ',idx,' of ',len(dataset.instances))
+		tokens=nlp(sent.lower())
+		word_pairs=[]
+		dep_pairs=[]
+		for tok in tokens:
+			for c in tok.children:
+				word_pairs.append((tok.orth_,c.orth_)) 
+				dep_pairs.append((tok.dep_,c.dep_))
+		padded_wp=pad_words(word_pairs,maxlen,append_tuple=True)
+		padded_deps=pad_words(dep_pairs,maxlen,append_tuple=True)
+		dep_labels=[j for i,j in dep_pairs]
+		avg_sent_matrix=[]
+		avg_label_sent_matrix=[]
+		for idx,word_pair in enumerate(word_pairs):
+			head,modifier=word_pair[0],word_pair[1]
+			if head in vocabwords and not head=='UNK':
+				head_vec=modelwords[head]
+			else:
+				head_vec=np.zeros(dimwords)
+			if modifier in vocabwords and not modifier=='UNK':
+				modifier_vec=modelwords[modifier]
+			else:
+				modifier_vec=np.zeros(dimwords)
+			avg=_data_manager.avg(np.array([head_vec,modifier_vec]))
+			if dep_labels[idx] != 'UNK':
+				dep_idx=deps2ids[dep_labels[idx]]
+			else:
+				dep_idx=-1
+			dep_vec=np.zeros(len(deps2ids)+1)
+			dep_vec[dep_idx]=1
+			avg_label_vec=np.concatenate([avg,dep_vec])
+			avg_sent_matrix.append(np.concatenate([avg,np.zeros(len(deps2ids)+1)]))
+			avg_label_sent_matrix.append(avg_label_vec)
+		wp=np.array(avg_sent_matrix)
+		labs=np.array(avg_label_sent_matrix)
+		X_wordpairs.append(wp)
+		X_deps.append(labs)
+
+	X_wordpairs=np.array(X_wordpairs)
+	X_deps=np.array(X_deps)
+
+	
+	if args['dependencies'] == 'ml':
+		X_enriched=np.concatenate([X,X_deps],axis=1)
+	elif args['dependencies'] == 'm':
+		X_enriched=np.concatenate([X,X_wordpairs],axis=1)
+	else:
+		X_enriched=X
+
+	X_enriched,y=shuffle(X_enriched,y,random_state=0)
+
+	print('Data shapes: (X) ',X_enriched.shape,' (y) ',y.shape)
+
+	# 10-fold CV
+	seed=7
+	n_splits=10
+	kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+	scores=defaultdict(int)
+	for train, test in kfold.split(X_enriched, y):
+		nnmodel=_data_manager.build_model(X_enriched[train],y[train])
+		#nnmodel.fit(X_wcl_enriched[train],y_wcl[train],epochs=epochs,batch_size=100)
+		print('Predicting...')
+		preds=np.array([i[0] for i in nnmodel.predict_classes(X_enriched[test])])
+		p=precision(preds,y[test])
+		r=recall(preds,y[test])
+		f1=f1_score(preds,y[test])
+		print('(Fold) Precision: ',p,' | Recall: ',r,' | F: ',f1)
+		scores['Precision']+=p
+		scores['Recall']+=r
+		scores['F1']+=f1
+	
+	print('Overall scores:')
+	for n,sc in scores.items():
+		print(n,'-> ',sc/n_splits*1.0)
