@@ -10,10 +10,17 @@ def simplified_baseline(vocab_size, embedding_dim):
     """
     model = tf.keras.Sequential([
       layers.Embedding(vocab_size, embedding_dim),
-      layers.Bidirectional(layers.LSTM(64, return_sequences=True)),
-      layers.Bidirectional(layers.LSTM(64)),
-      layers.Dense(100, activation='relu'),
-      layers.Dense(50, activation='relu'),
+      layers.Conv1D(50,
+		3,
+		padding='valid',
+		activation='relu',
+		strides=1),
+	  layers.MaxPooling1D(pool_size=4),
+    #   layers.Bidirectional(layers.LSTM(64, return_sequences=True)),
+      layers.Bidirectional(layers.LSTM(100)),
+    #   layers.Dense(100, activation='relu'),
+    #   layers.Dense(50, activation='relu'),
+      layers.Dropout(0.5),
       layers.Dense(1, activation='sigmoid')
       ])
     return model

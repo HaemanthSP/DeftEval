@@ -25,6 +25,7 @@ RESERVED = [',', '.', '"', "'", '/', '(', ')', '-', '_', ';', ':', '?', '!', '['
 
 
 def append_pos(sentence):
+    return sentence
     tokens = []
     pos = []
     for token in NLP(sentence, disable=["parser", "ner"]):
@@ -123,7 +124,7 @@ def train():
     model = experimental.simplified_baseline(vocab_size+2, 64)
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.Adam(0.0001),
-                  metrics=[metrics.Precision(), metrics.Recall()])
+                  metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
             
     model.summary()
 
