@@ -14,11 +14,11 @@ nlp=spacy.load('en_core_web_lg')
 def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	# hyperparams
 	kernel_size = 3
-	filters = 100
-	pool_size = 4
+	filters = 50
+	pool_size = 2
 	strides=1
 	# train opts
-	epochs=10
+	epochs=100
 	batch_size=100
 	nnmodel = Sequential()
 	nnmodel.add(Conv1D(filters,
@@ -28,11 +28,21 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 		strides=strides,
 		input_shape=(x.shape[1], x.shape[2])))
 	nnmodel.add(MaxPooling1D(pool_size=pool_size))
+	nnmodel.add(Conv1D(filters,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(MaxPooling1D(pool_size=pool_size))
 	if model_type=='cnn':
 		nnmodel.add(Flatten())
 		nnmodel.add(Dropout(0.5))
 	elif model_type=='cblstm':
+		# nnmodel.add(Bidirectional(LSTM(lstm_units)))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True), input_shape=(x.shape[1], x.shape[2])))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True)))
 		nnmodel.add(Bidirectional(LSTM(lstm_units)))
+		# nnmodel.add(Dense(50))
 		nnmodel.add(Dropout(0.5))
 	else:
 		sys.exit('Model type must be "cnn" or "blstm"')
