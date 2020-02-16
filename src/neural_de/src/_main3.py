@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 import sys
+import pickle
 sys.path.append('src')
 import numpy as np
 from collections import defaultdict
@@ -8,8 +9,6 @@ import _data_manager
 import os
 from sklearn.utils import shuffle
 from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.metrics import precision_score as precision
-from sklearn.metrics import recall_score as recall
 from sklearn.metrics import f1_score, confusion_matrix
 from keras.models import load_model
 from keras.callbacks import EarlyStopping
@@ -56,13 +55,14 @@ def pad_words(tokens,maxlen,append_tuple=False):
 				tokens.append(('UNK','UNK'))
 		return tokens
 
-def enrich_X(dataset, maxlen, deps2ids, ids2deps, poss2ids, ids2poss):
+def enrich_X(dataset, metadata):
+	maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords = metadata
 	print('Vectorizing dataset')
 	X=[]
 	for idx,sent in tqdm(enumerate(dataset.instances)):
 		# tokens=[tok.orth_ for tok in nlp(sent.lower())]
 		tokens=[tok.orth_ for tok in sent]
-		poss=[tok.pos_ for tok in sent]
+		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
 		sent_matrix=[]
 		for t_idx, token in enumerate(pad_words(tokens,maxlen,append_tuple=False)):
 			pos_vec=np.zeros(len(poss2ids)+1)
@@ -140,6 +140,36 @@ def enrich_X(dataset, maxlen, deps2ids, ids2deps, poss2ids, ids2poss):
 	return X_enriched
 
 
+def save_metadata(meatadata, outpath):
+	"""Save the metadata along with the model for future evaluation"""
+	print('Saving model to: ',outpath)
+	with open(outpath + '_meta', 'wb') as file_handle:
+		pickle.dump(metadata, file_handle)
+
+
+def evaluate(datapath, model_path):
+	# Load dataset
+	eval_dataset =_data_manager.Dataset(datapath,'deft')
+	eval_dataset.load_deft()
+
+	# Load model and metadata
+	metadata = pickle.load(open(model_path + '_meta', 'rb'))
+	X_eval_enriched = enrich_X(eval_dataset, metadata)
+	X_eval,y_eval=X_eval_enriched,y_deft_dev
+
+	# model = _data_manager.build_model(X_eval,y_eval,"cblstm",lstm_units=100) 
+	model = load_model(model_path)
+
+	predictions = model.predict(X_eval)
+	count = 0 
+	for idx, (z, y, x) in enumerate(zip(y_eval, predictions, eval_dataset.instances)):
+		if np.random.randint(2):
+			count+=1
+			print("\t".join([str(z), str(y), x.text])) 
+			if count > 30:
+				break
+	
+
 if __name__ == '__main__':
 
 	parser = ArgumentParser()
@@ -198,8 +228,13 @@ if __name__ == '__main__':
 					deps2ids[token.dep_]=depid
 					depid+=1
 				if not token.pos_ in poss2ids:
-					poss2ids[token.pos_]=posid
-					posid+=1
+					if token.pos_ == "PUNCT":
+						if token.text not in poss2ids:
+							poss2ids[token.text]=posid
+							posid+=1
+					else:
+						poss2ids[token.pos_]=posid
+						posid+=1
 				for c in token.children:
 					if not c.dep_ in deps2ids:
 						deps2ids[c.dep_]=depid
@@ -218,7 +253,8 @@ if __name__ == '__main__':
 	ids2poss=dict([(idx,pos) for pos,idx in poss2ids.items()])
 
 	# vectorize wcl, needs to be done in second pass to have maxlen
-	X_train_enriched = enrich_X(deft, maxlen, deps2ids, ids2deps, poss2ids, ids2poss)
+	metadata = maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords
+	X_train_enriched = enrich_X(deft, metadata)
 	X_train,y_train=shuffle(X_train_enriched,y_deft,random_state=0)
 
 	### VECTORIZING W00
@@ -229,7 +265,7 @@ if __name__ == '__main__':
 	# vectorize deft_dev, needs to be done in second pass to have maxlen
 	print('Vectorizing deft_dev')
 	# X_test,y_test=shuffle(X_enriched,y_deft_dev,random_state=0)
-	X_test_enriched = enrich_X(deft_dev, maxlen, deps2ids, ids2deps, poss2ids, ids2poss)
+	X_test_enriched = enrich_X(deft_dev, metadata)
 	X_test,y_test=X_test_enriched,y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
@@ -239,6 +275,8 @@ if __name__ == '__main__':
 	nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
 	nnmodel.fit(X_train, y_train,epochs=10,batch_size=64,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback])
 	nnmodel.save(outpath)
+	save_metadata(metadata, outpath)
+	print('Saving model to: ',outpath)
 	eval_loss, eval_precision, eval_recall, eval_acc = nnmodel.evaluate(X_test, y_test)
 	print('\nEval Loss: {:.3f}, Eval Precision: {:.3f}, Eval Recall: {:.3f}, Eval Acc: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_acc))
 	predictions = nnmodel.predict_classes(X_test)
@@ -247,8 +285,6 @@ if __name__ == '__main__':
 	print(confusion_matrix(preds, y_test))
 	from sklearn.metrics import classification_report
 	print(classification_report(y_test, preds))
-	print('Saving model to: ',outpath)
-
 
 	predictions2 = nnmodel.predict_classes(X_valid)
 	preds2=np.array([i[0] for i in predictions2])
@@ -257,9 +293,5 @@ if __name__ == '__main__':
 	from sklearn.metrics import classification_report
 	print(classification_report(y_valid, preds2))
 
-	predictions = nnmodel.predict(X_valid)
-	# Print samples
-	for idx, (z, y, x) in enumerate(zip(y_valid, predictions, deft_dev.instances)):
-		print("\t".join([str(z), str(y), x.text])) 
-		if idx > 30:
-			break
+	# save_metadata(metadata, outpath)
+	evaluate('data/deft_dataset/dev.deft', outpath)

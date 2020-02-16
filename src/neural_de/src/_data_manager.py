@@ -3,7 +3,7 @@ import os
 import sys
 import spacy
 import numpy as np
-from keras import metrics
+from keras import metrics, regularizers
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
 from tqdm import tqdm
@@ -15,7 +15,7 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	# hyperparams
 	kernel_size = 3
 	filters = 50
-	pool_size = 2
+	pool_size = 4 
 	strides=1
 	# train opts
 	epochs=100
@@ -38,10 +38,10 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 		nnmodel.add(Flatten())
 		nnmodel.add(Dropout(0.5))
 	elif model_type=='cblstm':
-		# nnmodel.add(Bidirectional(LSTM(lstm_units)))
-		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True), input_shape=(x.shape[1], x.shape[2])))
-		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True)))
 		nnmodel.add(Bidirectional(LSTM(lstm_units)))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True), input_shape=(x.shape[1], x.shape[2])))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
 		# nnmodel.add(Dense(50))
 		nnmodel.add(Dropout(0.5))
 	else:
@@ -206,7 +206,7 @@ class Dataset(object):
 			with open(os.path.join(self.path), 'r') as handle:
 				lines = handle.readlines()
 
-			for line in tqdm(lines):
+			for line in tqdm(lines[:1000]):
 				sentence, label = line.strip().split('\t') 
 				self.instances.append(nlp(sentence.strip('"').lower()))
 				self.labels.append(int(label.strip('"')))
