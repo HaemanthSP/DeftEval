@@ -3,11 +3,6 @@ import os
 from tqdm import tqdm
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
-
-from tqdm import tqdm
-
-os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
-
 import tensorflow as tf
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
