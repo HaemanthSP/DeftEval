@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import csv
 import sys
 import pickle
 sys.path.append('src')
@@ -10,8 +11,8 @@ import os
 from sklearn.utils import shuffle
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import f1_score, confusion_matrix
-from keras.models import load_model
-from keras.callbacks import EarlyStopping
+from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import EarlyStopping
 from tqdm import tqdm
 
 def get_maxlen(*args):
@@ -55,8 +56,8 @@ def pad_words(tokens,maxlen,append_tuple=False):
 				tokens.append(('UNK','UNK'))
 		return tokens
 
-def enrich_X(dataset, metadata):
-	maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords = metadata
+def enrich_X(dataset, metadata, modelwords):
+	maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords, dimwords, dependencies = metadata
 	print('Vectorizing dataset')
 	X=[]
 	for idx,sent in tqdm(enumerate(dataset.instances)):
@@ -92,7 +93,7 @@ def enrich_X(dataset, metadata):
 		dep_pairs=[]
 		for tok in tokens:
 			for c in tok.children:
-				word_pairs.append((tok.orth_,c.orth_)) 
+				word_pairs.append((tok.orth_,c.orth_))
 				dep_pairs.append((tok.dep_,c.dep_))
 		padded_wp=pad_words(word_pairs,maxlen,append_tuple=True)
 		padded_deps=pad_words(dep_pairs,maxlen,append_tuple=True)
@@ -129,10 +130,9 @@ def enrich_X(dataset, metadata):
 	X_wordpairs=np.array(X_wordpairs)
 	X_deps=np.array(X_deps)
 
-	
-	if args['dependencies'] == 'ml':
+	if dependencies == 'ml':
 		X_enriched=np.concatenate([X,X_deps],axis=1)
-	elif args['dependencies'] == 'm':
+	elif dependencies == 'm':
 		X_enriched=np.concatenate([X,X_wordpairs],axis=1)
 	else:
 		X_enriched=np.concatenate([X, X_deps, X_wordpairs],axis=1)
@@ -154,21 +154,75 @@ def evaluate(datapath, model_path):
 
 	# Load model and metadata
 	metadata = pickle.load(open(model_path + '_meta', 'rb'))
-	X_eval_enriched = enrich_X(eval_dataset, metadata)
+	X_eval_enriched = enrich_X(eval_dataset, metadata, modelwords)
 	X_eval,y_eval=X_eval_enriched,y_deft_dev
 
-	# model = _data_manager.build_model(X_eval,y_eval,"cblstm",lstm_units=100) 
+	# model = _data_manager.build_model(X_eval,y_eval,"cblstm",lstm_units=100)
 	model = load_model(model_path)
 
 	predictions = model.predict(X_eval)
-	count = 0 
+	count = 0
 	for idx, (z, y, x) in enumerate(zip(y_eval, predictions, eval_dataset.instances)):
 		if np.random.randint(2):
 			count+=1
-			print("\t".join([str(z), str(y), x.text])) 
+			print("\t".join([str(z), str(y), x.text]))
 			if count > 30:
 				break
-	
+
+def calculate_class_weights(dataset):
+	def get_class_distribution(labels):
+		num_pos = 0
+		num_neg = 0
+		for data in labels:
+			if data == 1:
+				num_pos += 1
+			else:
+				num_neg += 1
+		return num_pos, num_neg
+
+	# https://www.tensorflow.org/tutorials/structured_data/imbalanced_data#calculate_class_weights
+	pos, neg = get_class_distribution(dataset)
+	total = pos + neg
+	weight_for_0 = (1 / neg) * (total)/2.0
+	weight_for_1 = (1 / pos) * (total)/2.0
+
+	class_weight = {0: weight_for_0, 1: weight_for_1}
+
+	print('No. of class 0: {:d}'.format(neg))
+	print('No. of class 1: {:d}'.format(pos))
+	print('Weight for class 0: {:.2f}'.format(weight_for_0))
+	print('Weight for class 1: {:.2f}'.format(weight_for_1))
+
+	return class_weight
+
+ 
+def codalab_evaluation(data_dir, out_dir, model_path, embedding_path):
+	# Load W2V embedding
+	print("Loading w2v embedding")
+	modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embedding_path)
+	model = load_model(model_path)
+	metadata = pickle.load(open(model_path + '_meta', 'rb'))
+
+	for fname in os.listdir(data_dir):
+		print("processing %s" % (fname))
+		file_path = os.path.join(data_dir, fname)
+		out_path = os.path.join(out_dir, "task_1_" + fname)
+		# Load dataset
+		eval_dataset =_data_manager.Dataset(file_path,'deft')
+		eval_dataset.load_deft()
+
+		# Load model and metadata
+		X_eval_enriched = enrich_X(eval_dataset, metadata, modelwords)
+		y_eval=np.array(eval_dataset.labels)
+		X_eval,y_eval=X_eval_enriched, y_eval
+
+		predictions = model.predict_classes(X_eval)
+
+		with open(outpath, 'w') as fhandle:
+			wr = csv.writer(fhandle, delimiter="\t")
+			for sentence, pred in zip(eval_dataset.instances, predictions):
+				wr.writerow([sentence.text, pred])
+
 
 if __name__ == '__main__':
 
@@ -253,19 +307,19 @@ if __name__ == '__main__':
 	ids2poss=dict([(idx,pos) for pos,idx in poss2ids.items()])
 
 	# vectorize wcl, needs to be done in second pass to have maxlen
-	metadata = maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords
-	X_train_enriched = enrich_X(deft, metadata)
+	metadata = maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords, dimwords, args['dependencies']
+	X_train_enriched = enrich_X(deft, metadata, modelwords)
 	X_train,y_train=shuffle(X_train_enriched,y_deft,random_state=0)
 
 	### VECTORIZING W00
 
 	# no maxlen, no ids2deps
-	
+
 
 	# vectorize deft_dev, needs to be done in second pass to have maxlen
 	print('Vectorizing deft_dev')
 	# X_test,y_test=shuffle(X_enriched,y_deft_dev,random_state=0)
-	X_test_enriched = enrich_X(deft_dev, metadata)
+	X_test_enriched = enrich_X(deft_dev, metadata, modelwords)
 	X_test,y_test=X_test_enriched,y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
@@ -273,7 +327,7 @@ if __name__ == '__main__':
 
 	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 	nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
-	nnmodel.fit(X_train, y_train,epochs=10,batch_size=64,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback])
+	nnmodel.fit(X_train, y_train,epochs=10,batch_size=64,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
 	print('Saving model to: ',outpath)

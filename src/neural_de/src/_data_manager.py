@@ -3,9 +3,9 @@ import os
 import sys
 import spacy
 import numpy as np
-from keras import metrics, regularizers
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
+from tensorflow.keras import metrics, regularizers
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
 from tqdm import tqdm
 
 nlp=spacy.load('en_core_web_lg')
@@ -15,7 +15,7 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	# hyperparams
 	kernel_size = 3
 	filters = 50
-	pool_size = 4 
+	pool_size = 4
 	strides=1
 	# train opts
 	epochs=100
@@ -127,7 +127,7 @@ def vectorize_deprels(label_list,maxlen_dep,embedding_dim,labeldict):
 		else:
 			out.append(onehot)
 	out=np.array(out)
-	#print('Out shape for labels: ',out.shape)			
+	#print('Out shape for labels: ',out.shape)
 	return out
 
 def load_embeddings(embeddings_path):
@@ -197,7 +197,7 @@ class Dataset(object):
 			self.labels=np.array(self.labels)
 			print('Loaded ',self.name,' data')
 		else:
-			sys.exit('Dataset name must be "w00" ')	
+			sys.exit('Dataset name must be "w00" ')
 
 
 	def load_deft(self):
@@ -206,8 +206,8 @@ class Dataset(object):
 			with open(os.path.join(self.path), 'r') as handle:
 				lines = handle.readlines()
 
-			for line in tqdm(lines[:1000]):
-				sentence, label = line.strip().split('\t') 
+			for line in tqdm(lines):
+				sentence, label = line.strip().split('\t')
 				self.instances.append(nlp(sentence.strip('"').lower()))
 				self.labels.append(int(label.strip('"')))
 			self.labels=np.array(self.labels)
