@@ -1,19 +1,24 @@
 import numpy as np
+import os
 from tqdm import tqdm
-# from tensorflow.python.keras.models import Sequential
-# from tensorflow.python.keras.layers import Embedding, Bidirectional, SimpleRNN, LSTM, Dense, TimeDistributed
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+
+from tqdm import tqdm
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+
+import tensorflow as tf
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 
-# from tensorflow.keras.models import Model, Input
-from keras import Model, Input
-from keras.layers import LSTM, Embedding, Dense, TimeDistributed, Dropout, Bidirectional
-from keras_contrib.layers import CRF
+from tensorflow.keras import Model, Input
+from tensorflow.keras.layers import LSTM, Embedding, Dense, TimeDistributed, Dropout, Bidirectional
 from sklearn.metrics import classification_report
 
-# from tf_crf_layer.layer import CRF
-# from tf_crf_layer.loss import crf_loss
-# from tf_crf_layer.metrics import crf_accuracy
+from tf_crf_layer.layer import CRF
+from tf_crf_layer.loss import crf_loss
+from tf_crf_layer.metrics import crf_accuracy
 
 EMBED_DIM = 100
 EPOCHS = 1
@@ -45,9 +50,12 @@ def read_data(path, metadata=None):
             vocab_words.update(set(sentence))
             vocab_tags.update(set(tag_sequence))
 
-        vocab_tags.update(['PAD'])
         word2idx = {word: idx + 1 for idx, word in enumerate(vocab_words)}
-        tag2idx = {tag: idx for idx, tag in enumerate(vocab_tags)}
+        # padding has to be at the zero'th index to enable masking
+        tag2idx = { 'PAD': 0 }
+        for idx, tag in enumerate(vocab_tags):
+            tag2idx[tag] = float(idx + 1)
+        vocab_tags.update(['PAD'])
 
     # Encode
     X = [[word2idx[w] if w in vocab_words else len(vocab_words) - 1 for w in sentence] for sentence in sentences]
@@ -74,18 +82,15 @@ def train():
     vocab_words, vocab_tags, maxlen = metadata[0], metadata[1], metadata[-1]
 
     input_layer = Input(shape=(maxlen,))
-    # model = Sequential()
-    # model = Embedding(len(vocab_words) + 1, EMBED_DIM, input_length=maxlen, mask_zero=True)(input_layer)
-    model = Embedding(len(vocab_words) + 1, EMBED_DIM, input_length=maxlen)(input_layer)
+    model = Embedding(len(vocab_words) + 1, EMBED_DIM, input_length=maxlen, mask_zero=False)(input_layer)
     model = Bidirectional(LSTM(50, return_sequences=True))(model)
     model = TimeDistributed(Dense(50))(model)
     crf = CRF(len(vocab_tags))
     output_layer = crf(model)
-    # output_layer =  Dense(len(vocab_tags) + 1, activation='softmax')(model)
     model = Model(input_layer, output_layer)
 
-    model.compile('adam', loss=crf.loss_function, metrics=[crf.accuracy])
-    # model.compile('adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    #model.compile('adam', loss=crf_loss, metrics=[crf_accuracy])
+    model.compile('adam', loss='categorical_crossentropy')
     model.summary()
     model.fit(train_x, train_y, epochs=EPOCHS, validation_data=[test_x, test_y])
 
