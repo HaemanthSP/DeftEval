@@ -259,3 +259,4 @@
 " It is possible to determine the approximate distance between genetic markers using cytogenetic mapping , but not the exact distance ( number of base pairs ) ."	"0"
 " 603 . Sequence mapping resulted from DNA sequencing technology that allowed for the creation of detailed physical maps with distances measured in terms of the number of base pairs ."	"0"
 " The creation of genomic libraries and complementary DNA ( cDNA ) libraries ( collections of cloned sequences or all DNA from a genome ) has sped up the process of physical mapping ."	"1"
+" A genetic site used to generate a physical map with sequencing technology ( a sequence - tagged site , or STS ) is a unique sequence in the genome with a known exact chromosomal location ."	"1"

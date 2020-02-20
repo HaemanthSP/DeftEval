@@ -154,6 +154,7 @@ class Dataset(object):
 		self.path=path
 		self.name=name
 		self.instances=[]
+		self.sentences=[]
 		self.labels=[]
 
 	def load_wcl(self):
@@ -208,7 +209,9 @@ class Dataset(object):
 
 			for line in tqdm(lines):
 				sentence, label = line.strip().split('\t')
-				self.instances.append(nlp(sentence.strip('"').lower()))
+				raw_sentence = sentence.strip('"')
+				self.sentences.append(raw_sentence)
+				self.instances.append(nlp(raw_sentence.lower()))
 				self.labels.append(int(label.strip('"')))
 			self.labels=np.array(self.labels)
 			print('Loaded ',self.name,' data')

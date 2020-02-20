@@ -240,3 +240,4 @@
 " Neutron - induced fission can be written as"	"0"
 " 3242 . To produce large power , reactors contain hundreds to thousands of critical masses , and the chain reaction easily becomes self - sustaining , a condition called criticality ."	"1"
 " Neutron flux should be carefully regulated to avoid an exponential increase in fissions , a condition called supercriticality ."	"1"
+" Control rods help prevent overheating , perhaps even a meltdown or explosive disassembly ."	"0"

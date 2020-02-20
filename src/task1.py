@@ -220,8 +220,8 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_path):
 
 		with open(outpath, 'w') as fhandle:
 			wr = csv.writer(fhandle, delimiter="\t")
-			for sentence, pred in zip(eval_dataset.instances, predictions):
-				wr.writerow([sentence.text, pred])
+			for sentence, pred in zip(eval_dataset.sentence, predictions):
+				wr.writerow([sentence, pred])
 
 
 
