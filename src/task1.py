@@ -1,3 +1,6 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+
 from argparse import ArgumentParser
 import csv
 import sys
@@ -6,13 +9,13 @@ import numpy as np
 from collections import defaultdict
 import spacy
 import _data_manager
-import os
 from sklearn.utils import shuffle
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import f1_score, confusion_matrix
 from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import EarlyStopping
 from tqdm import tqdm
+import gc
 
 def get_maxlen(*args):
 	maxlen=-999
@@ -39,8 +42,8 @@ def get_dependency_repr(sent_list, modelwords, vocabwords, dimwords, maxlen, dep
 		labels_matrix=_data_manager.vectorize_deprels(dep_labels,maxlen,dimwords,deps2ids)
 		out_wordpairs.append(word_pairs_matrix)
 		out_deps.append(labels_matrix)
-	out_wordpairs=np.array(out_wordpairs)
-	out_deps=np.array(out_deps)
+	out_wordpairs=np.array(out_wordpairs, dtype='float32')
+	out_deps=np.array(out_deps, dtype='float32')
 	return out_wordpairs,out_deps
 
 def pad_words(tokens,maxlen,append_tuple=False):
@@ -65,22 +68,22 @@ def enrich_X(dataset, metadata, modelwords):
 		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
 		sent_matrix=[]
 		for t_idx, token in enumerate(pad_words(tokens,maxlen,append_tuple=False)):
-			pos_vec=np.zeros(len(poss2ids)+1)
+			pos_vec=np.zeros(len(poss2ids)+1, dtype='float32')
 			if t_idx < len(poss) and poss[t_idx] in poss2ids:
 				pos_vec[poss2ids[poss[t_idx]]]=1
 			else:
 				pos_vec[-1]=1
 			if token in vocabwords:
 				# each word vector is embedding dim + length of one-hot encoded label
-				vec=np.concatenate([modelwords[token],np.zeros(len(ids2deps)+1), pos_vec])
+				vec=np.concatenate([modelwords[token],np.zeros(len(ids2deps)+1, dtype='float32'), pos_vec])
 				sent_matrix.append(vec)
 			else:
 				# TODO add POS here
-				sent_matrix.append(np.concatenate([np.zeros(dimwords+len(ids2deps)+1), pos_vec]))
-		sent_matrix=np.array(sent_matrix)
+				sent_matrix.append(np.concatenate([np.zeros(dimwords+len(ids2deps)+1, dtype='float32'), pos_vec]))
+		sent_matrix=np.array(sent_matrix, dtype='float32')
 		X.append(sent_matrix)
 
-	X=np.array(X)
+	X=np.array(X, dtype='float32')
 
 	X_wordpairs=[]
 	X_deps=[]
@@ -111,7 +114,7 @@ def enrich_X(dataset, metadata, modelwords):
 				modifier_vec=np.zeros(dimwords)
 
 			# TODO: Can do something better than averaging
-			avg=_data_manager.avg(np.array([head_vec,modifier_vec]))
+			avg=_data_manager.avg(np.array([head_vec,modifier_vec], dtype='float32'))
 			if dep_labels[idx] != 'UNK':
 				dep_idx=deps2ids[dep_labels[idx]]
 			else:
@@ -121,13 +124,15 @@ def enrich_X(dataset, metadata, modelwords):
 			avg_label_vec=np.concatenate([avg,dep_vec])
 			avg_sent_matrix.append(np.concatenate([avg,np.zeros(len(deps2ids)+len(poss2ids)+2)]))
 			avg_label_sent_matrix.append(avg_label_vec)
-		wp=np.array(avg_sent_matrix)
-		labs=np.array(avg_label_sent_matrix)
+		wp=np.array(avg_sent_matrix, dtype='float32')
+		labs=np.array(avg_label_sent_matrix, dtype='float32')
 		X_wordpairs.append(wp)
 		X_deps.append(labs)
 
-	X_wordpairs=np.array(X_wordpairs)
-	X_deps=np.array(X_deps)
+	gc.collect()
+
+	X_wordpairs=np.array(X_wordpairs, dtype='float32')
+	X_deps=np.array(X_deps, dtype='float32')
 
 	if dependencies == 'ml':
 		X_enriched=np.concatenate([X,X_deps],axis=1)
@@ -226,6 +231,10 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_path):
 
 
 if __name__ == '__main__':
+	sys.argv = ['./task1.py',
+				'-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.6B.200d.w2vformat.txt',
+				'-dep', 'ml',
+				'-p', '..\\resources']
 
 	parser = ArgumentParser()
 
@@ -249,13 +258,13 @@ if __name__ == '__main__':
 	deft_dev.load_deft()
 
 	# load labels as np arrays
-	y_deft_dev=np.array(deft_dev.labels)
+	y_deft_dev=np.array(deft_dev.labels, dtype='float32')
 
 	embeddings=args['word_vectors']
 	modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embeddings)
 
 	# load labels as np arrays
-	y_deft=np.array(deft.labels)
+	y_deft=np.array(deft.labels, dtype='float32')
 
 	# preprocess
 	# get token and dependencies (head, modifier) maxlens and pos and dep ids
@@ -326,6 +335,9 @@ if __name__ == '__main__':
 
 	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 	nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
+
+	gc.collect()
+
 	nnmodel.fit(X_train, y_train,epochs=10,batch_size=64,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
@@ -333,14 +345,14 @@ if __name__ == '__main__':
 	eval_loss, eval_precision, eval_recall, eval_acc = nnmodel.evaluate(X_test, y_test)
 	print('\nEval Loss: {:.3f}, Eval Precision: {:.3f}, Eval Recall: {:.3f}, Eval Acc: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_acc))
 	predictions = nnmodel.predict_classes(X_test)
-	preds=np.array([i[0] for i in predictions])
+	preds=np.array([i[0] for i in predictions], dtype='float32')
 	print("Confusion Matrix")
 	print(confusion_matrix(preds, y_test))
 	from sklearn.metrics import classification_report
 	print(classification_report(y_test, preds))
 
 	predictions2 = nnmodel.predict_classes(X_valid)
-	preds2=np.array([i[0] for i in predictions2])
+	preds2=np.array([i[0] for i in predictions2], dtype='float32')
 	print("Confusion Matrix valid")
 	print(confusion_matrix(preds2, y_valid))
 	from sklearn.metrics import classification_report

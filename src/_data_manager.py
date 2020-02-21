@@ -38,12 +38,12 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 		nnmodel.add(Flatten())
 		nnmodel.add(Dropout(0.5))
 	elif model_type=='cblstm':
-		nnmodel.add(Bidirectional(LSTM(lstm_units)))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units)))
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True), input_shape=(x.shape[1], x.shape[2])))
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
-		# nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
+		nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
 		# nnmodel.add(Dense(50))
-		nnmodel.add(Dropout(0.5))
+		nnmodel.add(Dropout(0.4))
 	else:
 		sys.exit('Model type must be "cnn" or "blstm"')
 	nnmodel.add(Dense(1))
@@ -77,11 +77,11 @@ def vectorize_sentence(sent,model,vocab,model_dim,maxlen):
 			if w in vocab:
 				out.append(model[w])
 			else:
-				out.append(np.zeros(model_dim))
+				out.append(np.zeros(model_dim, dtype='float32'))
 		else:
 			# if its an 'UNK'
-			out.append(np.zeros(model_dim))
-	return np.array(out)
+			out.append(np.zeros(model_dim, dtype='float32'))
+	return np.array(out, dtype='float32')
 
 def parse_sent(sent):
 	"""
@@ -106,7 +106,7 @@ def vectorize_wordpairs(head_modifier_sent,model,vocab,model_dim,maxlen_dep,mode
 			if head and modifier:
 				if head in vocab and modifier in vocab:
 					if mode=='avg':
-						deparray=np.array([model[head],model[modifier]])
+						deparray=np.array([model[head],model[modifier]], dtype='float32')
 						avgdep=avg(deparray)
 						out.append(avgdep)
 						flag=True
@@ -114,7 +114,7 @@ def vectorize_wordpairs(head_modifier_sent,model,vocab,model_dim,maxlen_dep,mode
 						sys.exit('This mode: ',mode,' not implemented')
 		if not flag:
 			out.append(np.zeros(model_dim))
-	out=np.array(out)
+	out=np.array(out, dtype='float32')
 	return out
 
 def vectorize_deprels(label_list,maxlen_dep,embedding_dim,labeldict):
@@ -123,10 +123,10 @@ def vectorize_deprels(label_list,maxlen_dep,embedding_dim,labeldict):
 		onehot=np.zeros(embedding_dim)
 		if label and not label=='UNK':
 			onehot[labeldict[label]]=1
-			out.append(np.array(onehot))
+			out.append(np.array(onehot, dtype='float32'))
 		else:
-			out.append(onehot)
-	out=np.array(out)
+			out.append(onehot, dtype='float32')
+	out=np.array(out, dtype='float32')
 	#print('Out shape for labels: ',out.shape)
 	return out
 
@@ -204,7 +204,7 @@ class Dataset(object):
 	def load_deft(self):
 		if self.name=='deft':
 			# only task1 deft
-			with open(os.path.join(self.path), 'r') as handle:
+			with open(os.path.join(self.path), 'r', encoding='utf-8') as handle:
 				lines = handle.readlines()
 
 			for line in tqdm(lines):
