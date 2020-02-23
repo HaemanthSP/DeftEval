@@ -15,7 +15,7 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	# hyperparams
 	kernel_size = 3
 	filters = 50
-	pool_size = 4
+	pool_size = 2
 	strides=1
 	# train opts
 	epochs=100

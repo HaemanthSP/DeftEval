@@ -146,7 +146,7 @@ def enrich_X(dataset, metadata, modelwords):
 
 def save_metadata(meatadata, outpath):
 	"""Save the metadata along with the model for future evaluation"""
-	print('Saving model to: ',outpath)
+	print('Saving metadata to: ',outpath + '/meta')
 	with open(outpath + '/meta', 'wb') as file_handle:
 		pickle.dump(metadata, file_handle)
 
@@ -166,12 +166,15 @@ def evaluate(datapath, model_path):
 
 	predictions = model.predict(X_eval)
 	count = 0
+	threshold = 0.5
+	print("# Printing only the false predictions")
 	for idx, (z, y, x) in enumerate(zip(y_eval, predictions, eval_dataset.instances)):
-		if np.random.randint(2):
-			count+=1
-			print("\t".join([str(z), str(y), x.text]))
-			if count > 30:
-				break
+		if (z and y[0] > threshold) or (not z and y[0] < threshold):
+			continue
+		count+=1
+		print("\t".join([str(z), str(y), x.text]))
+	
+	print("Total number of false predictions: %s" %(count))
 
 
 def calculate_class_weights(dataset):
@@ -214,7 +217,7 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 	model = load_model(model_path)
 	metadata = pickle.load(open(model_path + '/meta', 'rb'))
 
-	for fname in os.listdir(data_dir):
+	for fname in tqdm(os.listdir(data_dir)):
 		print("processing %s" % (fname))
 		file_path = os.path.join(data_dir, fname)
 		out_path = os.path.join(out_dir, fname)
@@ -228,6 +231,7 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 		X_eval,y_eval=X_eval_enriched, y_eval
 
 		predictions = model.predict_classes(X_eval)
+
 
 		with open(out_path, 'w') as fhandle:
 			wr = csv.writer(fhandle, delimiter="\t")
@@ -340,7 +344,7 @@ if __name__ == '__main__':
         monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
 	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.02, random_state=42)
-	nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
+	nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100)
 	gc.collect()
 
 	nnmodel.fit(X_train, y_train,epochs=10,batch_size=128,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
@@ -365,4 +369,9 @@ if __name__ == '__main__':
 
 	# save_metadata(metadata, outpath)
 	evaluate('../task1_data/dev_combined.deft', outpath)
+
+	# Redirect the stdout
+	sys.stdout = open(os.devnull, "w")
 	codalab_evaluation('../task1_data/dev/', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
+	# Redirect the stdout
+	sys.stdout = sys.__stdout__
