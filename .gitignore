@@ -108,3 +108,5 @@ logs/
 saved_models/
 ner_dataset/results/
 .keep
+result/*
+resources/*

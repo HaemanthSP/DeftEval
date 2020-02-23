@@ -237,10 +237,10 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 
 
 if __name__ == '__main__':
-	sys.argv = ['./task1.py',
-				'-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.840B.300d.w2v.txt',#glove.6B.200d.w2vformat.txt',
-				'-dep', 'ml',
-				'-p', '..\\resources']
+	# sys.argv = ['./task1.py',
+	# 			'-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.6B.200d.w2vformat.txt',
+	# 			'-dep', 'ml',
+	#			'-p', '..\\resources']
 
 	parser = ArgumentParser()
 
