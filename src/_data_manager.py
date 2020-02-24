@@ -43,7 +43,7 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
 		nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
 		# nnmodel.add(Dense(50))
-		nnmodel.add(Dropout(0.4))
+		nnmodel.add(Dropout(0.5))
 	else:
 		sys.exit('Model type must be "cnn" or "blstm"')
 	nnmodel.add(Dense(1))
@@ -136,7 +136,7 @@ def load_embeddings(embeddings_path):
 		model=gensim.models.Word2Vec.load(embeddings_path)
 	except:
 		try:
-			model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path)
+			model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path,datatype=np.float16)
 		except:
 			try:
 				model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path,binary=True)

@@ -83,7 +83,7 @@ def enrich_X(dataset, metadata, modelwords):
 		sent_matrix=np.array(sent_matrix, dtype='float32')
 		X.append(sent_matrix)
 
-	X=np.array(X, dtype='float32')
+	X=np.array(X, dtype='float16')
 
 	X_wordpairs=[]
 	X_deps=[]
@@ -124,15 +124,15 @@ def enrich_X(dataset, metadata, modelwords):
 			avg_label_vec=np.concatenate([avg,dep_vec])
 			avg_sent_matrix.append(np.concatenate([avg,np.zeros(len(deps2ids)+len(poss2ids)+2)]))
 			avg_label_sent_matrix.append(avg_label_vec)
-		wp=np.array(avg_sent_matrix, dtype='float32')
-		labs=np.array(avg_label_sent_matrix, dtype='float32')
+		wp=np.array(avg_sent_matrix, dtype='float16')
+		labs=np.array(avg_label_sent_matrix, dtype='float16')
 		X_wordpairs.append(wp)
 		X_deps.append(labs)
 
 	gc.collect()
 
-	X_wordpairs=np.array(X_wordpairs, dtype='float32')
-	X_deps=np.array(X_deps, dtype='float32')
+	X_wordpairs=np.array(X_wordpairs, dtype='float16')
+	X_deps=np.array(X_deps, dtype='float16')
 
 	if dependencies == 'ml':
 		X_enriched=np.concatenate([X,X_deps],axis=1)
@@ -147,7 +147,7 @@ def enrich_X(dataset, metadata, modelwords):
 def save_metadata(meatadata, outpath):
 	"""Save the metadata along with the model for future evaluation"""
 	print('Saving model to: ',outpath)
-	with open(outpath + '_meta', 'wb') as file_handle:
+	with open(outpath + '/meta', 'wb') as file_handle:
 		pickle.dump(metadata, file_handle)
 
 
@@ -157,7 +157,7 @@ def evaluate(datapath, model_path):
 	eval_dataset.load_deft()
 
 	# Load model and metadata
-	metadata = pickle.load(open(model_path + '_meta', 'rb'))
+	metadata = pickle.load(open(model_path + '/meta', 'rb'))
 	X_eval_enriched = enrich_X(eval_dataset, metadata, modelwords)
 	X_eval,y_eval=X_eval_enriched,y_deft_dev
 
@@ -201,17 +201,23 @@ def calculate_class_weights(dataset):
 	return class_weight
 
 
-def codalab_evaluation(data_dir, out_dir, model_path, embedding_path):
+def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embedding_path=None):
 	# Load W2V embedding
 	print("Loading w2v embedding")
-	modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embedding_path)
+
+	if embedding_data:
+		modelwords,vocabwords,dimwords=embedding_data
+	else:
+		modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embedding_path)
+
+
 	model = load_model(model_path)
-	metadata = pickle.load(open(model_path + '_meta', 'rb'))
+	metadata = pickle.load(open(model_path + '/meta', 'rb'))
 
 	for fname in os.listdir(data_dir):
 		print("processing %s" % (fname))
 		file_path = os.path.join(data_dir, fname)
-		out_path = os.path.join(out_dir, "task_1_" + fname)
+		out_path = os.path.join(out_dir, fname)
 		# Load dataset
 		eval_dataset =_data_manager.Dataset(file_path,'deft')
 		eval_dataset.load_deft()
@@ -223,16 +229,16 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_path):
 
 		predictions = model.predict_classes(X_eval)
 
-		with open(outpath, 'w') as fhandle:
+		with open(out_path, 'w') as fhandle:
 			wr = csv.writer(fhandle, delimiter="\t")
-			for sentence, pred in zip(eval_dataset.sentence, predictions):
-				wr.writerow([sentence, pred])
+			for sentence, pred in zip(eval_dataset.sentences, predictions):
+				wr.writerow([sentence, pred[0]])
 
 
 
 if __name__ == '__main__':
 	sys.argv = ['./task1.py',
-				'-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.6B.200d.w2vformat.txt',
+				'-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.840B.300d.w2v.txt',#glove.6B.200d.w2vformat.txt',
 				'-dep', 'ml',
 				'-p', '..\\resources']
 
@@ -333,12 +339,11 @@ if __name__ == '__main__':
 	early_stopping_callback = EarlyStopping(
         monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
-	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
+	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.02, random_state=42)
 	nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
-
 	gc.collect()
 
-	nnmodel.fit(X_train, y_train,epochs=10,batch_size=64,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
+	nnmodel.fit(X_train, y_train,epochs=10,batch_size=128,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
 	print('Saving model to: ',outpath)
@@ -360,3 +365,4 @@ if __name__ == '__main__':
 
 	# save_metadata(metadata, outpath)
 	evaluate('../task1_data/dev_combined.deft', outpath)
+	codalab_evaluation('../task1_data/dev/', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
