@@ -58,7 +58,7 @@ def pad_words(tokens,maxlen,append_tuple=False):
 				tokens.append(('UNK','UNK'))
 		return tokens
 
-def enrich_X(dataset, metadata, modelwords):
+def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
 	maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords, dimwords, dependencies = metadata
 	print('Vectorizing dataset')
 	X=[]
@@ -68,23 +68,29 @@ def enrich_X(dataset, metadata, modelwords):
 		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
 		sent_matrix=[]
 		for t_idx, token in enumerate(pad_words(tokens,maxlen,append_tuple=False)):
-			pos_vec=np.zeros(len(poss2ids)+1, dtype='float32')
-			if t_idx < len(poss) and poss[t_idx] in poss2ids:
-				pos_vec[poss2ids[poss[t_idx]]]=1
-			else:
-				pos_vec[-1]=1
+			if POS_EMBED:
+				pos_vec=np.zeros(len(poss2ids)+1, dtype='float32')
+				if t_idx < len(poss) and poss[t_idx] in poss2ids:
+					pos_vec[poss2ids[poss[t_idx]]]=1
+				else:
+					pos_vec[-1]=1
 			if token in vocabwords:
 				# each word vector is embedding dim + length of one-hot encoded label
-				vec=np.concatenate([modelwords[token],np.zeros(len(ids2deps)+1, dtype='float32'), pos_vec])
+				if POS_EMBED:
+					vec=np.concatenate([modelwords[token],np.zeros(len(ids2deps)+1, dtype='float32'), pos_vec])
+				else:
+					vec=np.concatenate([modelwords[token],np.zeros(len(ids2deps)+1, dtype='float32')])
 				sent_matrix.append(vec)
 			else:
-				# TODO add POS here
-				sent_matrix.append(np.concatenate([np.zeros(dimwords+len(ids2deps)+1, dtype='float32'), pos_vec]))
+				if POS_EMBED:
+					sent_matrix.append(np.concatenate([np.zeros(dimwords+len(ids2deps)+1, dtype='float32'), pos_vec]))
+				else:
+					sent_matrix.append(np.concatenate([np.zeros(dimwords+len(ids2deps)+1, dtype='float32')]))
 		sent_matrix=np.array(sent_matrix, dtype='float32')
 		X.append(sent_matrix)
 
-	X=np.array(X, dtype='float16')
-
+	X=np.array(X, dtype='float32')
+	return X
 	X_wordpairs=[]
 	X_deps=[]
 	print("Build dependency relations")
@@ -139,7 +145,8 @@ def enrich_X(dataset, metadata, modelwords):
 	elif dependencies == 'm':
 		X_enriched=np.concatenate([X,X_wordpairs],axis=1)
 	else:
-		X_enriched=np.concatenate([X, X_deps, X_wordpairs],axis=1)
+		# X_enriched=np.concatenate([X, X_deps, X_wordpairs],axis=1)
+		X_enriched = X
 
 	return X_enriched
 
@@ -223,7 +230,7 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 		out_path = os.path.join(out_dir, fname)
 		# Load dataset
 		eval_dataset =_data_manager.Dataset(file_path,'deft')
-		eval_dataset.load_deft()
+		eval_dataset.load_deft(ignore_labels=True)
 
 		# Load model and metadata
 		X_eval_enriched = enrich_X(eval_dataset, metadata, modelwords)
@@ -233,18 +240,18 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 		predictions = model.predict_classes(X_eval)
 
 
-		with open(out_path, 'w') as fhandle:
+		with open(out_path, 'w', encoding='utf-8') as fhandle:
 			wr = csv.writer(fhandle, delimiter="\t")
 			for sentence, pred in zip(eval_dataset.sentences, predictions):
 				wr.writerow([sentence, pred[0]])
 
 
-
 if __name__ == '__main__':
-	# sys.argv = ['./task1.py',
-	# 			'-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.6B.200d.w2vformat.txt',
-	# 			'-dep', 'ml',
-	#			'-p', '..\\resources']
+	sys.argv = ['./task1.py',
+				'-wv', '..\\resources\\glove.840B.300d.metadata',
+				# '-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.840B.300d.w2v.txt',
+				'-dep', 'ml',
+				'-p', '..\\resources\\cnn_glove_074']
 
 	parser = ArgumentParser()
 
@@ -259,6 +266,19 @@ if __name__ == '__main__':
 	nlp=spacy.load('en_core_web_lg')
 
 	outpath=args['path']
+	os.makedirs(os.path.dirname(outpath), exist_ok=True)
+
+	embeddings=args['word_vectors']
+	modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embeddings)
+
+	if True:
+		# Redirect the stdout
+		sys.stdout = open(os.devnull, "w")
+		codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
+		codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
+		# Redirect the stdout
+		sys.stdout = sys.__stdout__
+		sys.exit(0)
 
 	# load datasets
 	deft=_data_manager.Dataset('../task1_data/train_combined.deft','deft')
@@ -269,9 +289,6 @@ if __name__ == '__main__':
 
 	# load labels as np arrays
 	y_deft_dev=np.array(deft_dev.labels, dtype='float32')
-
-	embeddings=args['word_vectors']
-	modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embeddings)
 
 	# load labels as np arrays
 	y_deft=np.array(deft.labels, dtype='float32')
@@ -343,7 +360,7 @@ if __name__ == '__main__':
 	early_stopping_callback = EarlyStopping(
         monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
-	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.02, random_state=42)
+	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 	nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100)
 	gc.collect()
 
@@ -372,6 +389,7 @@ if __name__ == '__main__':
 
 	# Redirect the stdout
 	sys.stdout = open(os.devnull, "w")
-	codalab_evaluation('../task1_data/dev/', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
+	codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
+	#codalab_evaluation('../task1_data/dev/', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
 	# Redirect the stdout
 	sys.stdout = sys.__stdout__

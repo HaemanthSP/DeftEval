@@ -7,7 +7,7 @@ from tensorflow.keras import metrics, regularizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
 from tqdm import tqdm
-
+import pickle
 nlp=spacy.load('en_core_web_lg')
 
 
@@ -21,27 +21,70 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	epochs=100
 	batch_size=100
 	nnmodel = Sequential()
-	nnmodel.add(Conv1D(filters,
+	nnmodel.add(Conv1D(256,
 		kernel_size,
 		padding='valid',
 		activation='relu',
 		strides=strides,
 		input_shape=(x.shape[1], x.shape[2])))
-	nnmodel.add(MaxPooling1D(pool_size=pool_size))
-	nnmodel.add(Conv1D(filters,
+	nnmodel.add(Conv1D(256,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(Conv1D(256,
 		kernel_size,
 		padding='valid',
 		activation='relu',
 		strides=strides))
 	nnmodel.add(MaxPooling1D(pool_size=pool_size))
+	nnmodel.add(Conv1D(128,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(Conv1D(128,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(Conv1D(128,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(MaxPooling1D(pool_size=pool_size))
+	nnmodel.add(Conv1D(64,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(Conv1D(64,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	nnmodel.add(Conv1D(64,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides))
+	# nnmodel.add(MaxPooling1D(pool_size=pool_size))
+	nnmodel.add(MaxPooling1D(pool_size=pool_size))
 	if model_type=='cnn':
 		nnmodel.add(Flatten())
+		nnmodel.add(Dense(48))
+		nnmodel.add(Dropout(0.5))
+		nnmodel.add(Dense(24))
+		nnmodel.add(Dropout(0.5))
+		nnmodel.add(Dense(12))
 		nnmodel.add(Dropout(0.5))
 	elif model_type=='cblstm':
 		# nnmodel.add(Bidirectional(LSTM(lstm_units)))
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True), input_shape=(x.shape[1], x.shape[2])))
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
-		nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
+		nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)), input_shape=(x.shape[1], x.shape[2])))
 		# nnmodel.add(Dense(50))
 		nnmodel.add(Dropout(0.5))
 	else:
@@ -133,15 +176,19 @@ def vectorize_deprels(label_list,maxlen_dep,embedding_dim,labeldict):
 def load_embeddings(embeddings_path):
 	print('Loading embeddings:',embeddings_path)
 	try:
-		model=gensim.models.Word2Vec.load(embeddings_path)
+		model,vocab,dims = pickle.load(open(embeddings_path, mode='rb'))
+		return model, vocab, dims
 	except:
 		try:
-			model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path,datatype=np.float16)
+			model=gensim.models.Word2Vec.load(embeddings_path)
 		except:
 			try:
-				model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path,binary=True)
+				model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path,datatype=np.float16)
 			except:
-				sys.exit('Couldnt load embeddings')
+				try:
+					model=gensim.models.KeyedVectors.load_word2vec_format(embeddings_path,binary=True)
+				except:
+					sys.exit('Couldnt load embeddings')
 	vocab=model.index2word
 	dims=model.__getitem__(vocab[0]).shape[0]
 	vocab=set(vocab)
@@ -201,17 +248,20 @@ class Dataset(object):
 			sys.exit('Dataset name must be "w00" ')
 
 
-	def load_deft(self):
+	def load_deft(self, ignore_labels=False):
 		if self.name=='deft':
 			# only task1 deft
 			with open(os.path.join(self.path), 'r', encoding='utf-8') as handle:
 				lines = handle.readlines()
 
 			for line in tqdm(lines):
-				sentence, label = line.strip().split('\t')
-				raw_sentence = sentence.strip('"')
+				splits = line.split('\t')
+				sentence = splits[0]
+				label = '0' if ignore_labels else splits[1]
+
+				raw_sentence = sentence.strip('"').strip('\n')
 				self.sentences.append(raw_sentence)
-				self.instances.append(nlp(raw_sentence.lower()))
+				self.instances.append(nlp(raw_sentence.strip().lower()))
 				self.labels.append(int(label.strip('"')))
 			self.labels=np.array(self.labels)
 			print('Loaded ',self.name,' data')

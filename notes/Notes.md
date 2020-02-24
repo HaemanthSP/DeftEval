@@ -228,3 +228,10 @@ by adding additional one hot dimensions for each punctuations
 | SW C-BiLSTM - dep & wp + poswpunc | C(50)P(4)(50)P(4)BiLstm(100)(0.5))D(1) | 8ES(5) | 0.1042 | 0.9453 | 0.9512 | 0.6974 | 0.6584 | 0.7025 | 0.389 | 0.795 | 0.609 | 0.69 | 0.824 
 | SW C-BiLSTM - dep & wp + poswpunc | C(50)P(4)(50)P(4)BiLstm(100)(0.5))D(1) | 8ES(5) | 0.0985 | 0.9511 | 0.9538 | 0.6659 | 0.6867 | 0.6637 | 0.382 | 0.757 | 0.737 | 0.74 | 0.839 
 | SW CNN - dep | C(50)P(4)(50)P(4)F(0.5))D(1) | 9ES(5) | 0.1917 | 0.8596 | 0.9270 | 0.5906 | 0.6433 | 0.7953 | 0.396 | 0.734 | 0.739 | 0.74 | 0.831 
+
+
+
+[ ] - Flag to disable the punc and pos tags (study the effect)
+[ ] - Presrve the input before encoding to analyse the results
+[ ] - Trainable embeddings
+[ ] - Only wordvec no other feat
