@@ -37,23 +37,23 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 		padding='valid',
 		activation='relu',
 		strides=strides))
-	nnmodel.add(MaxPooling1D(pool_size=pool_size))
-	nnmodel.add(Conv1D(128,
-		kernel_size,
-		padding='valid',
-		activation='relu',
-		strides=strides))
-	nnmodel.add(Conv1D(128,
-		kernel_size,
-		padding='valid',
-		activation='relu',
-		strides=strides))
-	nnmodel.add(Conv1D(128,
-		kernel_size,
-		padding='valid',
-		activation='relu',
-		strides=strides))
-	nnmodel.add(MaxPooling1D(pool_size=pool_size))
+	# nnmodel.add(MaxPooling1D(pool_size=pool_size))
+	# nnmodel.add(Conv1D(128,
+		# kernel_size,
+		# padding='valid',
+		# activation='relu',
+		# strides=strides))
+	# nnmodel.add(Conv1D(128,
+		# kernel_size,
+		# padding='valid',
+		# activation='relu',
+		# strides=strides))
+	# nnmodel.add(Conv1D(128,
+		# kernel_size,
+		# padding='valid',
+		# activation='relu',
+		# strides=strides))
+	# nnmodel.add(MaxPooling1D(pool_size=pool_size))
 	nnmodel.add(Conv1D(64,
 		kernel_size,
 		padding='valid',
@@ -194,6 +194,34 @@ def load_embeddings(embeddings_path):
 	vocab=set(vocab)
 	return model,vocab,dims
 
+
+def calculate_class_weights(dataset):
+	def get_class_distribution(labels):
+		num_pos = 0
+		num_neg = 0
+		for data in labels:
+			if data == 1:
+				num_pos += 1
+			else:
+				num_neg += 1
+		return num_pos, num_neg
+
+	# https://www.tensorflow.org/tutorials/structured_data/imbalanced_data#calculate_class_weights
+	pos, neg = get_class_distribution(dataset)
+	total = pos + neg
+	weight_for_0 = (1 / neg) * (total)/2.0
+	weight_for_1 = (1 / pos) * (total)/2.0
+
+	class_weight = {0: weight_for_0, 1: weight_for_1}
+
+	print('No. of class 0: {:d}'.format(neg))
+	print('No. of class 1: {:d}'.format(pos))
+	print('Weight for class 0: {:.2f}'.format(weight_for_0))
+	print('Weight for class 1: {:.2f}'.format(weight_for_1))
+
+	return class_weight
+
+
 class Dataset(object):
 
 	def __init__(self, path, name):
@@ -262,7 +290,7 @@ class Dataset(object):
 				raw_sentence = sentence.strip('"').strip('\n')
 				self.sentences.append(raw_sentence)
 				self.instances.append(nlp(raw_sentence.strip().lower()))
-				self.labels.append(int(label.strip('"')))
+				self.labels.append(int(label.strip('\n').strip('"')))
 			self.labels=np.array(self.labels)
 			print('Loaded ',self.name,' data')
 		else:
