@@ -231,7 +231,7 @@ by adding additional one hot dimensions for each punctuations
 
 
 
-[ ] - Flag to disable the punc and pos tags (study the effect)
+[x] - Flag to disable the punc and pos tags (study the effect) - Has a positive impact
 [ ] - Presrve the input before encoding to analyse the results
 [ ] - Trainable embeddings
 [ ] - Only wordvec no other feat

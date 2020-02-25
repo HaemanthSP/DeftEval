@@ -13,7 +13,7 @@ nlp=spacy.load('en_core_web_lg')
 
 def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	# hyperparams
-	kernel_size = 3
+	kernel_size = 4
 	filters = 50
 	pool_size = 2
 	strides=1
