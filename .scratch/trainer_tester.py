@@ -118,7 +118,9 @@ class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
     EPOCHS = 50
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
-                        InputPrimitive.POS_WPUNCT]
+                        InputPrimitive.POS_WPUNCT,
+                        InputPrimitive.DEP,
+                        InputPrimitive.HEAD]
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
     ES_MIN_DELTA = 0.001
@@ -132,12 +134,16 @@ class Task1:
 
         assert token_vocab_size == token_encoder.max_number() + 1
         out_matrix = np.zeros((token_vocab_size, dims), dtype='float32')
+        oov_count = 0
         for i in tqdm(range(1, token_vocab_size)):
             token = token_encoder.value(i)
             if token in vocab:
                 out_matrix[i] = embeddings[token]
             else:
                 out_matrix[i] = np.random.uniform(-1.0, 1.0, (1, dims))
+                oov_count += 1
+
+        print("\t%d words were out-of-vocabulary" % (oov_count))
 
         return out_matrix, dims
 
@@ -165,7 +171,7 @@ class Task1:
                                                                             Task1.PRETRAINED_EMBEDDING_PATH)
         model_gen_params[token_primitive_feature_idx]['embedding_initializer'] = pretrained_embeds
         model_gen_params[token_primitive_feature_idx]['embedding_dim'] = pretained_dims
-        model_gen_params[token_primitive_feature_idx]['trainable'] = True
+        model_gen_params[token_primitive_feature_idx]['trainable'] = False
 
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',
