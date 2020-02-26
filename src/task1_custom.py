@@ -18,6 +18,35 @@ from tqdm import tqdm
 import gc
 
 
+class Numberer:
+    def __init__(self):
+        self.v2n = dict()
+        self.n2v = list()
+        self.INVALID_NUMBER = 0
+
+    def number(self, value, add_if_absent=False):
+        n = self.v2n.get(value)
+
+        if n is None:
+            if add_if_absent:
+                n = len(self.n2v) + 1
+                self.v2n[value] = n
+                self.n2v.append(value)
+            else:
+                n = self.INVALID_NUMBER
+
+        return n
+
+
+    def value(self, number):
+        assert number > self.INVALID_NUMBER
+        return self.n2v[number - 1]
+
+
+    def max_number(self):
+        return len(self.n2v)
+
+
 def pad_words(tokens,maxlen,append_tuple=False):
 	if len(tokens) > maxlen:
 		return tokens[:maxlen]
@@ -66,20 +95,33 @@ def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
 	return X
 
 
-def encode_X(dataset, metadata, modelwords, POS_EMBED=True):
-	maxlen, _, _, vocabwords, dimwords = metadata
-	print('Vectorizing dataset')
+def encode_X_words(dataset, metadata, modelwords):
+	maxlen, _, _, vocabwords, _ = metadata
+	print('Vectorizing dataset - Words')
 	X=[]
 	for sent in tqdm(dataset.instances):
-		# tokens=[tok.orth_ for tok in nlp(sent.lower())]
 		tokens=[tok.orth_ for tok in sent]
-		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
 		sent_matrix= [modelwords.vocab[token].index if token in vocabwords else len(vocabwords)
-					  for token in pad_words(tokens,maxlen,append_tuple=False)]  
-		sent_matrix=np.array(sent_matrix, dtype='int32')
+					  for token in pad_words(tokens,maxlen,append_tuple=False)]
+		sent_matrix=np.array(sent_matrix, dtype='int32') # we need atleast 32-bits for word indices
 		X.append(sent_matrix)
 
-	return np.array(X, dtype='int16')
+	return np.array(X, dtype='int32')
+
+
+def encode_X_pos(dataset, metadata, include_punct=True):
+	maxlen, _, _, _, _ = metadata
+	print('Vectorizing dataset - POS')
+	X=[]
+	encoder = Numberer()
+	for sent in tqdm(dataset.instances):
+		pos = [tok.pos_ if tok.pos_ != "PUNCT" or not include_punct else tok.text for tok in sent]
+		pos = pad_words(pos,maxlen,append_tuple=False)
+
+		encoded_pos = [encoder.number(tag) for tag in pos]
+		X.append(np.array(encoded_pos, dtype='int8')) # POS tag vocab is < 127, so int8 is large enough
+
+	return np.array(X, dtype='int8')
 
 
 def save_metadata(meatadata, outpath):
