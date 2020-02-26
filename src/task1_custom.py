@@ -66,6 +66,22 @@ def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
 	return X
 
 
+def encode_X(dataset, metadata, modelwords, POS_EMBED=True):
+	maxlen, _, _, vocabwords, dimwords = metadata
+	print('Vectorizing dataset')
+	X=[]
+	for sent in tqdm(dataset.instances):
+		# tokens=[tok.orth_ for tok in nlp(sent.lower())]
+		tokens=[tok.orth_ for tok in sent]
+		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
+		sent_matrix= [modelwords.vocab[token].index if token in vocabwords else len(vocabwords)
+					  for token in pad_words(tokens,maxlen,append_tuple=False)]  
+		sent_matrix=np.array(sent_matrix, dtype='int32')
+		X.append(sent_matrix)
+
+	return np.array(X, dtype='int16')
+
+
 def save_metadata(meatadata, outpath):
 	"""Save the metadata along with the model for future evaluation"""
 	print('Saving metadata to: ',outpath + '/meta')
