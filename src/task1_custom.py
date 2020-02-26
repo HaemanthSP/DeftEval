@@ -100,7 +100,8 @@ def encode_X_words(dataset, metadata, modelwords):
 	X=[]
 	for sent in tqdm(dataset.instances):
 		tokens=[tok.orth_ for tok in sent]
-		sent_matrix= [modelwords.vocab[token].index if token in vocabwords else len(vocabwords)
+		# shall the index for unkowns and padding be zero?. which could be masked
+		sent_matrix= [modelwords.vocab[token].index + 1 if token in vocabwords else 0
 					  for token in pad_words(tokens,maxlen,append_tuple=False)]
 		sent_matrix=np.array(sent_matrix, dtype='int32') # we need atleast 32-bits for word indices
 		X.append(sent_matrix)
