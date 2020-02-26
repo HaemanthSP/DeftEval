@@ -8,14 +8,15 @@ class Token:
     def __init__(self, token, filename=None, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
         self.token = token
         self.filename = filename
-        self.start_char = int(start_char)
-        self.end_char = int(end_char)
+        self.start_char = int(start_char) if start_char is not None else -1
+        self.end_char = int(end_char) if end_char is not None else -1
         self.tag = tag
         self.tag_id = tag_id
         self.root_id = root_id
         self.relation = relation
 
-        self.tag = self.tag.replace(' ', '-')
+        if self.tag is not None:
+            self.tag = self.tag.replace(' ', '-')
 
 
 class Sentence:

@@ -34,6 +34,8 @@ class Numberer:
         for item in vocabulary:
             _ = self.number(item, add_if_absent=True)
 
+        assert len(self.n2v) == len(vocabulary)
+
 
     def number(self, value, add_if_absent=False):
         n = self.v2n.get(value)

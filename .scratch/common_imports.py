@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-FORCE_TENSORFLOW_CPU = True
-TENSORFLOW_LOGGING = 0  # 0 - disabled, 1 - default, 2 - verbose
+FORCE_TENSORFLOW_CPU = False
+TENSORFLOW_LOGGING = 1  # 0 - disabled, 1 - default, 2 - verbose
 
 if TENSORFLOW_LOGGING == 0:
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
