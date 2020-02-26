@@ -116,7 +116,7 @@ class Common:
 
 class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
-    EPOCHS = 2
+    EPOCHS = 50
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
                         InputPrimitive.POS_WPUNCT]
     EMBEDDING_DIM = 128
@@ -154,7 +154,8 @@ class Task1:
                 'dim': Task1.FEATURE_VECTOR_LENGTH,
                 'vocab_size': i,
                 'embedding_dim': Task1.EMBEDDING_DIM,
-                'embedding_initializer': None
+                'embedding_initializer': None,
+                'trainable': True,
             } for i in vocab_size_x]
 
         token_primitive_feature_idx = Task1.INPUT_PRIMITIVES.index(InputPrimitive.TOKEN)
@@ -164,6 +165,7 @@ class Task1:
                                                                             Task1.PRETRAINED_EMBEDDING_PATH)
         model_gen_params[token_primitive_feature_idx]['embedding_initializer'] = pretrained_embeds
         model_gen_params[token_primitive_feature_idx]['embedding_dim'] = pretained_dims
+        model_gen_params[token_primitive_feature_idx]['trainable'] = True
 
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',

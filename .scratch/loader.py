@@ -88,7 +88,7 @@ class Common:
 
                             # Task 1 needs special casing, the rest share the same parsing routine as the training data
                             if task == Task.TASK_1:
-                                sentence = Preprocessor.remove_quotes(splits[0])
+                                sentence = Preprocessor.remove_quotes(current_line.strip('"').strip('\n'))
                                 sent_wrapper = corpus.Sentence(sent_id=i,line_num=i,raw_sent=sentence)
                                 for token in tokenizer(sentence):
                                     sent_wrapper.add_token(token=token.text)

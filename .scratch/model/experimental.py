@@ -4,9 +4,9 @@ from common_imports import *
 from tensorflow.keras.initializers import Constant
 
 
-def feature_extractors(inputs, vocab_size, embedding_dim, embedding_initializer):
+def feature_extractors(inputs, vocab_size, embedding_dim, embedding_initializer, trainable):
     embedded = layers.Embedding(vocab_size, embedding_dim,
-                                trainable=True,
+                                trainable=trainable,
                                 mask_zero=True,
                                 embeddings_initializer=Constant(embedding_initializer) if embedding_initializer is not None else 'uniform',
                                 embeddings_regularizer=regularizers.l2(0.001),
@@ -22,7 +22,8 @@ def create_multi_feature_model(input_attribs):
         feature = feature_extractors(inputs,
                                      input_attrib['vocab_size'],
                                      input_attrib['embedding_dim'],
-                                     input_attrib['embedding_initializer'])
+                                     input_attrib['embedding_initializer'],
+                                     input_attrib['trainable'])
 
         inputs_list.append(inputs)
         if idx == 0:
@@ -31,7 +32,7 @@ def create_multi_feature_model(input_attribs):
             concate = tf.keras.layers.concatenate([concate, feature])
 
     # hyperparams
-    kernel_size = 4
+    kernel_size = 3
     pool_size = 2
     strides=1
 

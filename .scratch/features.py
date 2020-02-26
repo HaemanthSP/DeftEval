@@ -10,7 +10,7 @@ class InputPrimitive(Enum):
 
 
 LOWERCASE_TOKENS = True
-MIN_FREQ_COUNT = 2
+MIN_FREQ_COUNT = 1
 
 
 class Task1:
