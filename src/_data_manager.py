@@ -6,12 +6,13 @@ import numpy as np
 from tensorflow.keras import metrics, regularizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
+from tensorflow.keras.initializers import Constant
 from tqdm import tqdm
 import pickle
 nlp=spacy.load('en_core_web_lg')
 
 
-def build_model(x,y,model_type,lstm_units=100,validation_data=''):
+def build_model(x,y,model_type,lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
 	# hyperparams
 	kernel_size = 4
 	filters = 50
@@ -21,12 +22,20 @@ def build_model(x,y,model_type,lstm_units=100,validation_data=''):
 	epochs=100
 	batch_size=100
 	nnmodel = Sequential()
-	nnmodel.add(Conv1D(256,
-		kernel_size,
-		padding='valid',
-		activation='relu',
-		strides=strides,
-		input_shape=(x.shape[1], x.shape[2])))
+	if embedding_weights is not None:
+		nnmodel.add(Embedding(vocab_size, 300, embeddings_initializer=Constant(embedding_weights), input_length=x.shape[1], trainable=True, mask_zero=True))
+		nnmodel.add(Conv1D(256,
+			kernel_size,
+			padding='valid',
+			activation='relu',
+			strides=strides))
+	else:
+		nnmodel.add(Conv1D(256,
+			kernel_size,
+			padding='valid',
+			activation='relu',
+			strides=strides,
+			input_shape=(x.shape[1], x.shape[2])))
 	nnmodel.add(Conv1D(256,
 		kernel_size,
 		padding='valid',

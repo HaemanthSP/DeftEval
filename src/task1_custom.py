@@ -54,9 +54,9 @@ def pad_words(tokens,maxlen,append_tuple=False):
 		dif=maxlen-len(tokens)
 		for i in range(dif):
 			if append_tuple == False:
-				tokens.append('UNK')
+				tokens.append('<UNK>')
 			else:
-				tokens.append(('UNK','UNK'))
+				tokens.append(('<UNK>','<UNK>'))
 		return tokens
 
 
@@ -65,7 +65,6 @@ def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
 	print('Vectorizing dataset')
 	X=[]
 	for idx,sent in tqdm(enumerate(dataset.instances)):
-		# tokens=[tok.orth_ for tok in nlp(sent.lower())]
 		tokens=[tok.orth_ for tok in sent]
 		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
 		sent_matrix=[]
@@ -261,20 +260,28 @@ if __name__ == '__main__':
 
 	# vectorize wcl, needs to be done in second pass to have maxlen
 	metadata = maxlen, poss2ids, ids2poss, vocabwords, dimwords
-	X_train_enriched = enrich_X(deft, metadata, modelwords)
-	X_train,y_train=shuffle(X_train_enriched,y_deft,random_state=0)
+	# X_train_enriched = enrich_X(deft, metadata, modelwords)
+	# X_train,y_train=shuffle(X_train_enriched,y_deft,random_state=0)
+	X_train_encoded = encode_X(deft, metadata, modelwords)
+	X_train,y_train=shuffle(X_train_encoded,y_deft,random_state=0)
 
 	# vectorize deft_dev, needs to be done in second pass to have maxlen
 	print('Vectorizing deft_dev')
 	# X_test,y_test=shuffle(X_enriched,y_deft_dev,random_state=0)
-	X_test_enriched = enrich_X(deft_dev, metadata, modelwords)
-	X_test,y_test=X_test_enriched,y_deft_dev
+	# X_test_enriched = enrich_X(deft_dev, metadata, modelwords)
+	# X_test,y_test=X_test_enriched,y_deft_dev
+	X_test_encoded = encode_X(deft_dev, metadata, modelwords)
+	X_test,y_test=X_test_encoded,y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
         monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
 	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
-	nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100)
+
+	embedding_weights = np.concatenate([np.zeros((1, dimwords)), modelwords.vectors])
+	embedding_weights = np.array(embedding_weights, dtype='float32')
+
+	nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100, embedding_weights=embedding_weights, vocab_size=len(vocabwords) + 1)
 	gc.collect()
 
 	nnmodel.fit(X_train, y_train,epochs=10,batch_size=128,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=_data_manager.calculate_class_weights(y_train))
