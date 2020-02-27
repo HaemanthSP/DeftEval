@@ -18,35 +18,6 @@ from tqdm import tqdm
 import gc
 
 
-class Numberer:
-    def __init__(self):
-        self.v2n = dict()
-        self.n2v = list()
-        self.INVALID_NUMBER = 0
-
-    def number(self, value, add_if_absent=False):
-        n = self.v2n.get(value)
-
-        if n is None:
-            if add_if_absent:
-                n = len(self.n2v) + 1
-                self.v2n[value] = n
-                self.n2v.append(value)
-            else:
-                n = self.INVALID_NUMBER
-
-        return n
-
-
-    def value(self, number):
-        assert number > self.INVALID_NUMBER
-        return self.n2v[number - 1]
-
-
-    def max_number(self):
-        return len(self.n2v)
-
-
 def pad_words(tokens,maxlen,append_tuple=False):
 	if len(tokens) > maxlen:
 		return tokens[:maxlen]
@@ -58,40 +29,6 @@ def pad_words(tokens,maxlen,append_tuple=False):
 			else:
 				tokens.append(('<UNK>','<UNK>'))
 		return tokens
-
-
-def enrich_X(dataset, metadata, w2v_model, POS_EMBED=True):
-	maxlen, pos2id, id2pos, w2v_vocab, w2v_dim = metadata
-	print('Vectorizing dataset')
-	X=[]
-	for idx,sent in tqdm(enumerate(dataset.instances)):
-		tokens=[tok.orth_ for tok in sent]
-		poss=[tok.pos_ if tok.pos_ != "PUNCT" else tok.text for tok in sent]
-		sent_matrix=[]
-		for t_idx, token in enumerate(pad_words(tokens,maxlen,append_tuple=False)):
-			if POS_EMBED:
-				pos_vec=np.zeros(len(pos2id)+1, dtype='float32')
-				if t_idx < len(poss) and poss[t_idx] in pos2id:
-					pos_vec[pos2id[poss[t_idx]]]=1
-				else:
-					pos_vec[-1]=1
-			if token in w2v_vocab:
-				# each word vector is embedding dim + length of one-hot encoded label
-				if POS_EMBED:
-					vec=np.concatenate([w2v_model[token], pos_vec])
-				else:
-					vec=w2v_model[token]
-				sent_matrix.append(vec)
-			else:
-				if POS_EMBED:
-					sent_matrix.append(np.concatenate([np.zeros(w2v_dim, dtype='float32'), pos_vec]))
-				else:
-					sent_matrix.append(np.concatenate([np.zeros(w2v_dim, dtype='float32')]))
-		sent_matrix=np.array(sent_matrix, dtype='float32')
-		X.append(sent_matrix)
-
-	X=np.array(X, dtype='float16')
-	return X
 
 
 def encode_X_words(dataset, metadata):
@@ -110,7 +47,7 @@ def encode_X_words(dataset, metadata):
 	return np.array(X, dtype='int32')
 
 
-def encode_X_pos(dataset, metadata):
+def encode_X_pos(dataset, metadata, include_punct=True):
 	print('Vectorizing dataset - POS')
 	X=[]
 
@@ -140,12 +77,13 @@ def evaluate(datapath, model_path):
 
 	# Load model and metadata
 	metadata = pickle.load(open(model_path + '/meta', 'rb'))
-	X_eval_enriched = enrich_X(eval_dataset, metadata, w2v_model)
-	X_eval,y_eval=X_eval_enriched,y_deft_dev
+	X_eval_word = encode_X_words(eval_dataset, metadata)
+	X_eval_pos = encode_X_pos(eval_dataset, metadata)
+	y_eval = np.array(eval_dataset.labels, dtype='float32')
 
 	model = load_model(model_path)
 
-	predictions = model.predict(X_eval)
+	predictions = model.predict_on_batch([X_eval_word, X_eval_pos])
 	count = 0
 	threshold = 0.5
 	print("# Printing only the false predictions")
@@ -180,18 +118,18 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 		eval_dataset =_data_manager.Dataset(file_path,'deft')
 		eval_dataset.load_deft(ignore_labels=True)
 
-		# Load model and metadata
-		X_eval_enriched = enrich_X(eval_dataset, metadata, w2v_model)
-		y_eval=np.array(eval_dataset.labels)
-		X_eval,y_eval=X_eval_enriched, y_eval
 
-		predictions = model.predict_classes(X_eval)
+		X_eval_word = encode_X_words(eval_dataset, metadata)
+		X_eval_pos = encode_X_pos(eval_dataset, metadata)
+		# y_eval = np.array(eval_dataset.labels, dtype='float32')
+
+		predictions = model.predict_on_batch([X_eval_word, X_eval_pos])
 
 
 		with open(out_path, 'w', encoding='utf-8') as fhandle:
 			wr = csv.writer(fhandle, delimiter="\t")
 			for sentence, pred in zip(eval_dataset.sentences, predictions):
-				wr.writerow([sentence, pred[0]])
+				wr.writerow([sentence, 1 if pred[0] > 0.5 else 0])
 
 
 if __name__ == '__main__':
@@ -220,7 +158,7 @@ if __name__ == '__main__':
 
 	if args['eval']:
 		codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
-		codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
+		# codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
 		sys.exit(0)
 
 	# load datasets
@@ -272,17 +210,21 @@ if __name__ == '__main__':
 	print("POS vocab size: ", len(id2pos))
 
 	metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos
-	X_train_encoded = encode_X_words(deft, metadata)
-	X_train,y_train = shuffle(X_train_encoded, y_deft, random_state=0)
+	X_train_word = encode_X_words(deft, metadata)
+	X_train_pos = encode_X_pos(deft, metadata)
+	X_train_word, X_train_pos, y_train = shuffle(X_train_word, X_train_pos, y_deft, random_state=0)
+
+	print("\n\n\ntraining shape: ", X_train_word.shape)
 
 	print('Vectorizing deft_dev')
-	X_test_encoded = encode_X_words(deft_dev, metadata)
-	X_test, y_test = X_test_encoded, y_deft_dev
+	X_test_word = encode_X_words(deft_dev, metadata)
+	X_test_pos = encode_X_pos(deft_dev, metadata)
+	y_test = y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
         monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
-	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
+	X_train_word, X_valid_word, X_train_pos, X_valid_pos, y_train, y_valid = train_test_split(X_train_word, X_train_pos, y_train, test_size=0.10, random_state=42)
 
 	# Build the embedding matrix 
 	embedding_weights = [w2v_model[id2vocab[idx]] if id2vocab[idx] in w2v_vocab else np.zeros(w2v_dim)
@@ -290,27 +232,28 @@ if __name__ == '__main__':
 	embedding_weights = np.array(embedding_weights, dtype='float32')
 	print("Shape of the embedding: ", embedding_weights.shape)
 
-	nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100, embedding_weights=embedding_weights, vocab_size=len(id2vocab))
+	# nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100, embedding_weights=embedding_weights, vocab_size=len(id2vocab))
+	nnmodel=_data_manager.build_model2(maxlen, embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos)])
 	gc.collect()
 
-	nnmodel.fit(X_train, y_train,epochs=10,batch_size=128,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=_data_manager.calculate_class_weights(y_train))
+	nnmodel.fit([X_train_word, X_train_pos], y_train,epochs=25,batch_size=128,validation_data=[[X_valid_word, X_valid_pos], y_valid], callbacks=[early_stopping_callback], class_weight=_data_manager.calculate_class_weights(y_train))
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
 	print('Saving model to: ',outpath)
-	eval_loss, eval_precision, eval_recall, eval_acc = nnmodel.evaluate(X_test, y_test)
+	eval_loss, eval_precision, eval_recall, eval_acc = nnmodel.evaluate([X_test_word, X_test_pos] , y_test)
 	print('\nEval Loss: {:.3f}, Eval Precision: {:.3f}, Eval Recall: {:.3f}, Eval Acc: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_acc))
 
 	# Evaluate test data
-	predictions = nnmodel.predict_classes(X_test)
-	preds=np.array([i[0] for i in predictions], dtype='float32')
+	predictions = nnmodel.predict_on_batch([X_test_word, X_test_pos])
+	preds=np.array([1 if i[0]>0.5 else 0 for i in predictions], dtype='float32')
 	print("Confusion Matrix")
 	print(confusion_matrix(preds, y_test))
 	from sklearn.metrics import classification_report
 	print(classification_report(y_test, preds))
 
 	# Evaluate validation data
-	predictions2 = nnmodel.predict_classes(X_valid)
-	preds2=np.array([i[0] for i in predictions2], dtype='float32')
+	predictions2 = nnmodel.predict_on_batch([X_valid_word, X_valid_pos])
+	preds2=np.array([1 if i[0]>0.5 else 0 for i in predictions2], dtype='float32')
 	print("Confusion Matrix valid")
 	print(confusion_matrix(preds2, y_valid))
 	from sklearn.metrics import classification_report

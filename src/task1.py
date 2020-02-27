@@ -89,8 +89,9 @@ def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
 		sent_matrix=np.array(sent_matrix, dtype='float32')
 		X.append(sent_matrix)
 
-	X=np.array(X, dtype='float32')
-	return X
+	X=np.array(X, dtype='float16')
+	# return X
+
 	X_wordpairs=[]
 	X_deps=[]
 	print("Build dependency relations")

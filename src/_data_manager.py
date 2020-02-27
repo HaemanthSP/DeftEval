@@ -3,6 +3,7 @@ import os
 import sys
 import spacy
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras import metrics, regularizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
@@ -11,10 +12,47 @@ from tqdm import tqdm
 import pickle
 nlp=spacy.load('en_core_web_lg')
 
+def build_model2(maxlen, embedding_weights=None, vocab_size=None):
+	"""
+	combine features from various inputs and build a model
+	"""
+	input1 = tf.keras.Input(shape=(maxlen,), name="Input_1", dtype=tf.int32)
+	input2 = tf.keras.Input(shape=(maxlen,), name="Input_2", dtype=tf.int8)
+	embed_1 = Embedding(vocab_size[0], 300, embeddings_regularizer=regularizers.l2(0.001), embeddings_initializer=Constant(embedding_weights[0]), trainable=True)(input1)
+	embed_2 = Embedding(vocab_size[1], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True)(input2)
+	concate = tf.keras.layers.concatenate([embed_1, embed_2])
+	output = Bidirectional(LSTM(100, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(concate)
+	# output = Conv1D(256, 3, activation='relu')(concate)
+	output = Conv1D(256, 3, activation='relu')(output)
+	output = Conv1D(256, 3, activation='relu')(output)
+	output = MaxPooling1D(pool_size=2)(output)
+	output = Bidirectional(LSTM(50, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(output)
+	# output = Conv1D(64, 3, activation='relu')(output)
+	output = Conv1D(64, 3, activation='relu')(output)
+	output = Conv1D(64, 3, activation='relu')(output)
+	output = MaxPooling1D(pool_size=2)(output)
+	output = Flatten()(output)
+	output = Dense(64)(output)
+	output = Dropout(0.5)(output)
+	# output = Dense(48)(output)
+	# output = Dropout(0.5)(output)
+	output = Dense(24)(output)
+	output = Dropout(0.5)(output)
+	output = Dense(1, activation='sigmoid')(output)
+
+	inputs_list = [input1, input2]
+	model = tf.keras.Model(inputs=inputs_list, outputs=output)
+	model.compile(loss='binary_crossentropy',
+		optimizer='adam',
+		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
+	print(model.summary())
+
+	return model
+
 
 def build_model(x,y,model_type,lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
 	# hyperparams
-	kernel_size = 4
+	kernel_size = 2
 	filters = 50
 	pool_size = 2
 	strides=1
@@ -92,8 +130,8 @@ def build_model(x,y,model_type,lstm_units=100,validation_data='', embedding_weig
 		# nnmodel.add(Bidirectional(LSTM(lstm_units)))
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True), input_shape=(x.shape[1], x.shape[2])))
 		# nnmodel.add(Bidirectional(LSTM(lstm_units, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
-		# nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
-		nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)), input_shape=(x.shape[1], x.shape[2])))
+		nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001))))
+		# nnmodel.add(Bidirectional(LSTM(lstm_units, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)), input_shape=(x.shape[1], x.shape[2])))
 		# nnmodel.add(Dense(50))
 		nnmodel.add(Dropout(0.5))
 	else:
