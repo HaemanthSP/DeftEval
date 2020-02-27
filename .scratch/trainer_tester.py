@@ -116,10 +116,10 @@ class Common:
 
         return class_weights
 
-
-class F1Score(tf.keras.metrics.Metric):
+@tf.keras.utils.register_keras_serializable(package='.scratch')
+class CustomFScore(tf.keras.metrics.Metric):
     def __init__(self, name='F1Score', class_id=None, dtype=None):
-        super(F1Score, self).__init__(name=name, dtype=dtype)
+        super(CustomFScore, self).__init__(name=name, dtype=dtype)
 
         self.class_id = class_id
         default_threshold = 0.5
@@ -176,7 +176,7 @@ class F1Score(tf.keras.metrics.Metric):
         config = {
             'class_id': self.class_id
         }
-        base_config = super(F1Score, self).get_config()
+        base_config = super(CustomFScore, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 
@@ -184,9 +184,7 @@ class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
     EPOCHS = 50
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
-                        InputPrimitive.POS_WPUNCT,
-                        InputPrimitive.DEP,
-                        InputPrimitive.HEAD]
+                        InputPrimitive.POS_WPUNCT]
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
     ES_MIN_DELTA = 0.001
@@ -242,11 +240,11 @@ class Task1:
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',
                     optimizer=optimizers.Adam(Task1.LEARNING_RATE),
-                    metrics=[metrics.Precision(), metrics.Recall(), F1Score()])
+                    metrics=[metrics.Precision(), metrics.Recall(), CustomFScore()])
         model.summary()
 
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-            monitor='val_F1Score', min_delta=Task1.ES_MIN_DELTA, patience=Task1.ES_PATIENCE, restore_best_weights=True)
+            monitor='val_F1Score', min_delta=Task1.ES_MIN_DELTA, patience=Task1.ES_PATIENCE, mode='max',restore_best_weights=True)
 
         model.fit(train_data,
                 epochs=Task1.EPOCHS,

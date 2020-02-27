@@ -16,13 +16,13 @@ class Serde:
 
     @staticmethod
     def save_tf_model(model, path):
-        assert path.endswith('.h5') == True
+        #assert path.endswith('.h5') == True
         model.save(path)
 
 
     @staticmethod
-    def load_tf_model(path):
-        return tf.keras.models.load_model(path)
+    def load_tf_model(path, custom_objects=None):
+        return tf.keras.models.load_model(path, custom_objects)
 
 
 class Numberer:
