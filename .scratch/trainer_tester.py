@@ -6,6 +6,9 @@ from features import InputPrimitive
 import tensorflow.keras.backend as K
 import pickle
 import ntpath
+from tensorflow.python.keras.utils import metrics_utils
+from tensorflow import math as math_ops
+from tensorflow.python.keras.utils.generic_utils import to_list
 
 
 class Common:
@@ -114,6 +117,70 @@ class Common:
         return class_weights
 
 
+class F1Score(tf.keras.metrics.Metric):
+    def __init__(self, name='F1Score', class_id=None, dtype=None):
+        super(F1Score, self).__init__(name=name, dtype=dtype)
+
+        self.class_id = class_id
+        default_threshold = 0.5
+        self.thresholds = metrics_utils.parse_init_thresholds(
+            None, default_threshold=default_threshold)
+        self.true_positives = self.add_weight(
+            'true_positives',
+            shape=(len(self.thresholds),),
+            initializer='zeros')
+        self.false_positives = self.add_weight(
+            'false_positives',
+            shape=(len(self.thresholds),),
+            initializer='zeros')
+        self.false_negatives = self.add_weight(
+            'false_negatives',
+            shape=(len(self.thresholds),),
+            initializer='zeros')
+
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        metrics_utils.update_confusion_matrix_variables(
+            {
+                metrics_utils.ConfusionMatrix.TRUE_POSITIVES: self.true_positives,
+                metrics_utils.ConfusionMatrix.FALSE_POSITIVES: self.false_positives,
+                metrics_utils.ConfusionMatrix.FALSE_NEGATIVES: self.false_negatives
+            },
+            y_true,
+            y_pred,
+            thresholds=self.thresholds,
+            class_id=self.class_id,
+            sample_weight=sample_weight)
+
+    def result(self):
+        precision = math_ops.divide_no_nan(self.true_positives,
+                                    self.true_positives + self.false_positives)
+        recall = math_ops.divide_no_nan(self.true_positives,
+                                    self.true_positives + self.false_negatives)
+
+        precision = precision[0] if len(self.thresholds) == 1 else precision
+        recall = recall[0] if len(self.thresholds) == 1 else recall
+
+        mul_val = precision * recall
+        add_val = precision + recall
+
+        f1_score = 2 * math_ops.divide_no_nan(mul_val, precision + add_val)
+
+        return f1_score
+
+    def reset_states(self):
+        num_thresholds = len(to_list(self.thresholds))
+        K.batch_set_value(
+            [(v, np.zeros((num_thresholds,))) for v in self.variables])
+
+    def get_config(self):
+        config = {
+            'class_id': self.class_id
+        }
+        base_config = super(F1Score, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
 class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
     EPOCHS = 50
@@ -135,7 +202,7 @@ class Task1:
         assert token_vocab_size == token_encoder.max_number() + 1
         out_matrix = np.zeros((token_vocab_size, dims), dtype='float32')
         oov_count = 0
-        for i in tqdm(range(1, token_vocab_size)):
+        for i in range(1, token_vocab_size):
             token = token_encoder.value(i)
             if token in vocab:
                 out_matrix[i] = embeddings[token]
@@ -176,11 +243,11 @@ class Task1:
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',
                     optimizer=optimizers.Adam(Task1.LEARNING_RATE),
-                    metrics=[metrics.Precision(), metrics.Recall()])
+                    metrics=[metrics.Precision(), metrics.Recall(), F1Score()])
         model.summary()
 
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-            monitor='val_loss', min_delta=Task1.ES_MIN_DELTA, patience=Task1.ES_PATIENCE, restore_best_weights=True)
+            monitor='val_F1Score', min_delta=Task1.ES_MIN_DELTA, patience=Task1.ES_PATIENCE, restore_best_weights=True)
 
         model.fit(train_data,
                 epochs=Task1.EPOCHS,
