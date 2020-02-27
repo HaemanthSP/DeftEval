@@ -235,3 +235,6 @@ by adding additional one hot dimensions for each punctuations
 [ ] - Presrve the input before encoding to analyse the results
 [ ] - Trainable embeddings
 [ ] - Only wordvec no other feat
+
+With a Hybrid model of LSTM and CNN
+Eval Loss: 0.463, Eval Precision: 0.715, Eval Recall: 0.794, Eval Acc: 0.834, Eval F1: 0.247 

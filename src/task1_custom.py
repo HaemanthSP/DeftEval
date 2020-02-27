@@ -16,6 +16,8 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import EarlyStopping
 from tqdm import tqdm
 import gc
+from _data_manager import F1Score
+from tensorflow.keras import metrics, regularizers
 
 
 def pad_words(tokens,maxlen,append_tuple=False):
@@ -70,6 +72,10 @@ def save_metadata(meatadata, outpath):
 		pickle.dump(metadata, file_handle)
 
 
+def decode_words(X_words, id2vocab):
+	return " ".join([id2vocab[word] for word in X_words])
+
+
 def evaluate(datapath, model_path):
 	# Load dataset
 	eval_dataset =_data_manager.Dataset(datapath,'deft')
@@ -77,21 +83,26 @@ def evaluate(datapath, model_path):
 
 	# Load model and metadata
 	metadata = pickle.load(open(model_path + '/meta', 'rb'))
+	_, _, id2vocab, _, id2pos = metadata
 	X_eval_word = encode_X_words(eval_dataset, metadata)
 	X_eval_pos = encode_X_pos(eval_dataset, metadata)
 	y_eval = np.array(eval_dataset.labels, dtype='float32')
 
-	model = load_model(model_path)
+	model = load_model(model_path, compile=False)
+	model.compile(loss='binary_crossentropy',
+		optimizer='adam',
+		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy', F1Score()])
 
 	predictions = model.predict_on_batch([X_eval_word, X_eval_pos])
 	count = 0
 	threshold = 0.5
 	print("# Printing only the false predictions")
-	for idx, (z, y, x) in enumerate(zip(y_eval, predictions, eval_dataset.instances)):
+	# for idx, (z, y, x) in enumerate(zip(y_eval, predictions, eval_dataset.instances)):
+	for idx, (z, y, xw, xp) in enumerate(zip(y_eval, predictions, X_eval_word, X_eval_pos)):
 		if (z and y[0] > threshold) or (not z and y[0] < threshold):
 			continue
 		count+=1
-		print("\t".join([str(z), str(y), x.text]))
+		print("\t".join([str(z), str(y), decode_words(xw, id2vocab), decode_words(xp, id2vocab)]))
 
 	print("Total number of false predictions: %s" %(count))
 
@@ -107,7 +118,10 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 		w2v_model,w2v_vocab,w2v_dim=_data_manager.load_embeddings(embedding_path)
 
 
-	model = load_model(model_path)
+	model = load_model(model_path, compile=False)
+	model.compile(loss='binary_crossentropy',
+		optimizer='adam',
+		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy', F1Score()])
 	metadata = pickle.load(open(model_path + '/meta', 'rb'))
 
 	for fname in tqdm(os.listdir(data_dir)):
@@ -157,8 +171,10 @@ if __name__ == '__main__':
 	w2v_model,w2v_vocab,w2v_dim=_data_manager.load_embeddings(embeddings)
 
 	if args['eval']:
+		# evaluate()
+		evaluate('../task1_data/dev_combined.deft', outpath)
 		codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
-		# codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
+		codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
 		sys.exit(0)
 
 	# load datasets
@@ -222,7 +238,7 @@ if __name__ == '__main__':
 	y_test = y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
-        monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
+        monitor='val_F1Score', min_delta=0.001, patience=5, restore_best_weights=True)
 
 	X_train_word, X_valid_word, X_train_pos, X_valid_pos, y_train, y_valid = train_test_split(X_train_word, X_train_pos, y_train, test_size=0.10, random_state=42)
 
@@ -240,8 +256,8 @@ if __name__ == '__main__':
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
 	print('Saving model to: ',outpath)
-	eval_loss, eval_precision, eval_recall, eval_acc = nnmodel.evaluate([X_test_word, X_test_pos] , y_test)
-	print('\nEval Loss: {:.3f}, Eval Precision: {:.3f}, Eval Recall: {:.3f}, Eval Acc: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_acc))
+	eval_loss, eval_precision, eval_recall, eval_acc, eval_f1  = nnmodel.evaluate([X_test_word, X_test_pos] , y_test)
+	print('\nEval Loss: {:.3f}, Eval Precision: {:.3f}, Eval Recall: {:.3f}, Eval Acc: {:.3f}, Eval F1: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_acc, eval_f1))
 
 	# Evaluate test data
 	predictions = nnmodel.predict_on_batch([X_test_word, X_test_pos])

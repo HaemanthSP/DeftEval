@@ -8,9 +8,81 @@ from tensorflow.keras import metrics, regularizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Activation, Bidirectional, Dropout, Conv1D, MaxPooling1D, Embedding, Flatten, LSTM
 from tensorflow.keras.initializers import Constant
+from sklearn.metrics import f1_score, confusion_matrix
 from tqdm import tqdm
 import pickle
+from tensorflow.python.keras.utils import metrics_utils
+from tensorflow import math as math_ops
+from tensorflow.python.keras.utils.generic_utils import to_list
+import tensorflow.keras.backend as K
+
+
 nlp=spacy.load('en_core_web_lg')
+
+
+class F1Score(tf.keras.metrics.Metric):
+    def __init__(self, name='F1Score', class_id=None, dtype=None):
+        super(F1Score, self).__init__(name=name, dtype=dtype)
+
+        self.class_id = class_id
+        default_threshold = 0.5
+        self.thresholds = metrics_utils.parse_init_thresholds(
+            None, default_threshold=default_threshold)
+        self.true_positives = self.add_weight(
+            'true_positives',
+            shape=(len(self.thresholds),),
+            initializer='zeros')
+        self.false_positives = self.add_weight(
+            'false_positives',
+            shape=(len(self.thresholds),),
+            initializer='zeros')
+        self.false_negatives = self.add_weight(
+            'false_negatives',
+            shape=(len(self.thresholds),),
+            initializer='zeros')
+
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        metrics_utils.update_confusion_matrix_variables(
+            {
+                metrics_utils.ConfusionMatrix.TRUE_POSITIVES: self.true_positives,
+                metrics_utils.ConfusionMatrix.FALSE_POSITIVES: self.false_positives,
+                metrics_utils.ConfusionMatrix.FALSE_NEGATIVES: self.false_negatives
+            },
+            y_true,
+            y_pred,
+            thresholds=self.thresholds,
+            class_id=self.class_id,
+            sample_weight=sample_weight)
+
+    def result(self):
+        precision = math_ops.divide_no_nan(self.true_positives,
+                                    self.true_positives + self.false_positives)
+        recall = math_ops.divide_no_nan(self.true_positives,
+                                    self.true_positives + self.false_negatives)
+
+        precision = precision[0] if len(self.thresholds) == 1 else precision
+        recall = recall[0] if len(self.thresholds) == 1 else recall
+
+        mul_val = precision * recall
+        add_val = precision + recall
+
+        f1_score = 2 * math_ops.divide_no_nan(mul_val, add_val)
+
+        return 1 - f1_score
+
+    def reset_states(self):
+        num_thresholds = len(to_list(self.thresholds))
+        K.batch_set_value(
+            [(v, np.zeros((num_thresholds,))) for v in self.variables])
+
+    def get_config(self):
+        config = {
+            'class_id': self.class_id
+        }
+        base_config = super(F1Score, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
 
 def build_model2(maxlen, embedding_weights=None, vocab_size=None):
 	"""
@@ -18,7 +90,7 @@ def build_model2(maxlen, embedding_weights=None, vocab_size=None):
 	"""
 	input1 = tf.keras.Input(shape=(maxlen,), name="Input_1", dtype=tf.int32)
 	input2 = tf.keras.Input(shape=(maxlen,), name="Input_2", dtype=tf.int8)
-	embed_1 = Embedding(vocab_size[0], 300, embeddings_regularizer=regularizers.l2(0.001), embeddings_initializer=Constant(embedding_weights[0]), trainable=True)(input1)
+	embed_1 = Embedding(vocab_size[0], 300, embeddings_initializer=Constant(embedding_weights[0]), trainable=False)(input1)
 	embed_2 = Embedding(vocab_size[1], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True)(input2)
 	concate = tf.keras.layers.concatenate([embed_1, embed_2])
 	output = Bidirectional(LSTM(100, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(concate)
@@ -44,7 +116,8 @@ def build_model2(maxlen, embedding_weights=None, vocab_size=None):
 	model = tf.keras.Model(inputs=inputs_list, outputs=output)
 	model.compile(loss='binary_crossentropy',
 		optimizer='adam',
-		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
+		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy', F1Score()])
+		# metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
 	print(model.summary())
 
 	return model
