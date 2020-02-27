@@ -164,8 +164,7 @@ class F1Score(tf.keras.metrics.Metric):
         mul_val = precision * recall
         add_val = precision + recall
 
-        f1_score = 2 * math_ops.divide_no_nan(mul_val, precision + add_val)
-
+        f1_score = 2 * math_ops.divide_no_nan(mul_val, add_val)
         return f1_score
 
     def reset_states(self):
