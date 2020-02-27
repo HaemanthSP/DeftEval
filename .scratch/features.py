@@ -13,6 +13,7 @@ LOWERCASE_TOKENS = True
 MIN_FREQ_COUNT = 1
 
 
+
 class Task1:
     @staticmethod
     def get_token(tokens, nlp_annotations, term_frequencies):
@@ -74,6 +75,18 @@ class Task1:
         }
 
         return feature_map[primitive.name](sentence.tokens, sentence.nlp_annotations, term_frequencies)
+
+
+def get_oov_placeholder(primitive):
+    placeholder_map = {
+            'POS': '<UNK_POS>',
+            'TOKEN': '<UNK_WORD_TOKEN>',
+            'POS_WPUNCT': '<UNK_POS_WPUNCT>',
+            'DEP': '<UNK_DEP>',
+            'HEAD': '<UNK_HEAD>'
+        }
+
+    return placeholder_map[primitive.name]
 
 
 

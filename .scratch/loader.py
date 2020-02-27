@@ -305,19 +305,24 @@ class Task1:
 
 
     @staticmethod
-    def encode_primitives(x, encoders, shapes, add_if_absent):
+    def encode_primitives(x, encoders, shapes, input_primitives, use_oov_placeholder):
         for row_idx, row in enumerate(tqdm(x)):
             new_feature_arrays = [np.zeros(shape, dtype=np.int32)
                                   for shape in shapes]
 
             for idx, feature_input in enumerate(row):
+                oov_placeholder = features.get_oov_placeholder(input_primitives[idx])
                 for primitive_idx, primitive in enumerate(feature_input):
                     if primitive_idx >= shapes[0]:
-                        # Can occur if the NLP pipeline identifies more
-                        # tokens in the reconstructed sentence
+                        assert True == False
                         break
 
-                    new_feature_arrays[idx][primitive_idx] = encoders[idx].number(primitive, add_if_absent)
+                    encoded_id = encoders[idx].number(primitive, False)
+                    if encoded_id == encoders[idx].INVALID_NUMBER and use_oov_placeholder:
+                        encoded_id = encoders[idx].number(oov_placeholder)
+                        assert encoded_id != encoders[idx].INVALID_NUMBER
+
+                    new_feature_arrays[idx][primitive_idx] = encoded_id
 
             x[row_idx] = {}
             for idx, feat in enumerate(new_feature_arrays, 1):
@@ -350,7 +355,7 @@ class Task1:
     def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length, valid_dataset_take_size):
         x_train = []
         y_train = []
-        combined_vocabs = [set() for i in input_primitives]
+        combined_vocabs = [set([features.get_oov_placeholder(i)]) for i in input_primitives]
 
         print("Generating primitives and constructing vocabulary")
         Task1.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, combined_vocabs, update_vocab=True)
@@ -358,7 +363,8 @@ class Task1:
         print("Encoding primitives")
         encoders = [Numberer(vocab) for vocab in combined_vocabs]
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
-        Task1.encode_primitives(x_train, encoders, feature_vector_shapes, add_if_absent=False)
+        Task1.encode_primitives(x_train, encoders, feature_vector_shapes, input_primitives,
+                                use_oov_placeholder=False)
 
         x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_take_size)
 
@@ -385,7 +391,8 @@ class Task1:
 
         print("Encoding primitives")
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
-        Task1.encode_primitives(x_test, encoders, feature_vector_shapes, add_if_absent=False)
+        Task1.encode_primitives(x_test, encoders, feature_vector_shapes, input_primitives,
+                                use_oov_placeholder=True)
 
         test_dataset = Task1.create_tf_dataset(x_test, y_test, input_primitives)
         for idx, vocab in enumerate(combined_vocabs):
