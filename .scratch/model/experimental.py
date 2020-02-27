@@ -9,7 +9,7 @@ def feature_extractors(inputs, vocab_size, embedding_dim, embedding_initializer,
                                 trainable=trainable,
                                 mask_zero=True,
                                 embeddings_initializer=Constant(embedding_initializer) if embedding_initializer is not None else 'uniform',
-                                embeddings_regularizer=regularizers.l2(0.001),
+                                embeddings_regularizer=regularizers.l2(0.001) if trainable else None,
                                 input_length=inputs.shape[1])
 
     return embedded(inputs)
