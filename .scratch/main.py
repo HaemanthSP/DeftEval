@@ -19,8 +19,8 @@ def train(task, dataset_path):
     trained_model = TASK_REGISTRY[task].train(train_data, valid_data, train_metadata)
 
     print("Evaluating model on dev set")
-    eval_loss, eval_precision, eval_recall = trained_model.evaluate(test_data)
-    print('\nEval loss: {:.3f}, Eval precision: {:.3f}, Eval recall: {:.3f}'.format(eval_loss, eval_precision, eval_recall))
+    eval_loss, eval_precision, eval_recall, eval_f1 = trained_model.evaluate(test_data)
+    print('\nEval Metrics:\n\tLoss: {:.3f}\n\tPrecision: {:.3f}\n\tRecall: {:.3f}\n\t, F1: {:.3f}'.format(eval_loss, eval_precision, eval_recall, eval_f1))
 
     preds = trained_model.predict(test_data)
     assert preds.shape[0] == len(test_metadata)
