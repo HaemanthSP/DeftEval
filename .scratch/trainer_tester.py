@@ -184,11 +184,13 @@ class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
     EPOCHS = 50
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
-                        InputPrimitive.POS_WPUNCT]
+                        InputPrimitive.POS_WPUNCT,
+                        InputPrimitive.HEAD,
+                        InputPrimitive.DEP]
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
-    ES_MIN_DELTA = 0.001
-    ES_PATIENCE = 5
+    ES_MIN_DELTA = 0.01
+    ES_PATIENCE = 10
     PRETRAINED_EMBEDDING_PATH = '..\\resources\\glove.840B.300d.metadata'
 
 

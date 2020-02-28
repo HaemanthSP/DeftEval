@@ -30,6 +30,12 @@ def create_multi_feature_model(input_attribs):
             concate = feature
         else:
             concate = tf.keras.layers.concatenate([concate, feature])
+    layer_accum = concate
+
+    layer_accum = layers.Bidirectional(layers.LSTM(50,
+                                return_sequences=True,
+                                kernel_regularizer=regularizers.l2(0.001),
+                                recurrent_regularizer=regularizers.l2(0.001)))(layer_accum)
 
     # hyperparams
     kernel_size = 3
@@ -40,12 +46,6 @@ def create_multi_feature_model(input_attribs):
                         kernel_size=kernel_size,
                         padding='valid',
 			                  activation='relu',
-			                  strides=strides)(concate)
-
-    layer_accum = layers.Conv1D(256,
-                        kernel_size=kernel_size,
-                        padding='valid',
-			                  activation='relu',
 			                  strides=strides)(layer_accum)
 
     layer_accum = layers.Conv1D(256,
@@ -54,11 +54,19 @@ def create_multi_feature_model(input_attribs):
 			                  activation='relu',
 			                  strides=strides)(layer_accum)
 
-    layer_accum = layers.Conv1D(64,
-                        kernel_size=kernel_size,
-                        padding='valid',
-			                  activation='relu',
-			                  strides=strides)(layer_accum)
+    layer_accum = layers.MaxPooling1D(pool_size=pool_size)(layer_accum)
+
+    # layer_accum = layers.Conv1D(256,
+    #                     kernel_size=kernel_size,
+    #                     padding='valid',
+	# 		                  activation='relu',
+	# 		                  strides=strides)(layer_accum)
+
+    # layer_accum = layers.Conv1D(64,
+    #                     kernel_size=kernel_size,
+    #                     padding='valid',
+	# 		                  activation='relu',
+	# 		                  strides=strides)(layer_accum)
 
     layer_accum = layers.Conv1D(64,
                         kernel_size=kernel_size,
@@ -75,13 +83,14 @@ def create_multi_feature_model(input_attribs):
 
     layer_accum = layers.MaxPooling1D(pool_size=pool_size)(layer_accum)
     layer_accum = layers.Flatten()(layer_accum)
-    layer_accum = layers.Dense(48, kernel_regularizer=regularizers.l2(0.001))(layer_accum)
+    # layer_accum = layers.Dense(48, kernel_regularizer=regularizers.l2(0.001))(layer_accum)
+    layer_accum = layers.Dense(64)(layer_accum)
     layer_accum = layers.Dropout(0.5)(layer_accum)
-    layer_accum = layers.Dense(24, kernel_regularizer=regularizers.l2(0.001))(layer_accum)
+    layer_accum = layers.Dense(24)(layer_accum)
     layer_accum = layers.Dropout(0.5)(layer_accum)
-    layer_accum = layers.Dense(12, kernel_regularizer=regularizers.l2(0.001))(layer_accum)
-    layer_accum = layers.Dropout(0.5)(layer_accum)
-    outputs = layers.Dense(1, kernel_regularizer=regularizers.l2(0.001), activation='sigmoid')(layer_accum)
+    # layer_accum = layers.Dense(12, kernel_regularizer=regularizers.l2(0.001))(layer_accum)
+    # layer_accum = layers.Dropout(0.5)(layer_accum)
+    outputs = layers.Dense(1, activation='sigmoid')(layer_accum)
     model = tf.keras.Model(inputs=inputs_list, outputs=outputs)
 
     return model
