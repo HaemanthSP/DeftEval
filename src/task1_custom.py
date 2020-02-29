@@ -73,7 +73,9 @@ def save_metadata(meatadata, outpath):
 
 
 def decode_words(X_words, id2vocab):
-	return " ".join([id2vocab[word] for word in X_words])
+	import re
+	sent = " ".join([id2vocab[word] if word else '<UNK>' for word in X_words])
+	return re.sub(r'(<UNK> ){2,}', '<PADDING>', sent)
 
 
 def evaluate(datapath, model_path):
@@ -94,6 +96,12 @@ def evaluate(datapath, model_path):
 		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy', F1Score()])
 
 	predictions = model.predict_on_batch([X_eval_word, X_eval_pos])
+	preds=np.array([1 if i[0]>0.5 else 0 for i in predictions], dtype='float32')
+	print("Confusion Matrix")
+	print(confusion_matrix(preds, y_eval))
+	from sklearn.metrics import classification_report
+	print(classification_report(y_eval, preds))
+
 	count = 0
 	threshold = 0.5
 	print("# Printing only the false predictions")
@@ -102,7 +110,7 @@ def evaluate(datapath, model_path):
 		if (z and y[0] > threshold) or (not z and y[0] < threshold):
 			continue
 		count+=1
-		print("\t".join([str(z), str(y), decode_words(xw, id2vocab), decode_words(xp, id2vocab)]))
+		print("\t".join([str(z), str(y.numpy()[0]), decode_words(xw, id2vocab), decode_words(xp, id2pos)]))
 
 	print("Total number of false predictions: %s" %(count))
 
@@ -173,8 +181,8 @@ if __name__ == '__main__':
 	if args['eval']:
 		# evaluate()
 		evaluate('../task1_data/dev_combined.deft', outpath)
-		codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
-		codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
+		# codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
+		# codalab_evaluation('../task1_data/dev/', '../result/task1_dev/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])
 		sys.exit(0)
 
 	# load datasets
@@ -195,8 +203,8 @@ if __name__ == '__main__':
 	# label to integer mapping
 	pos2id = {'<UNK>': 0}
 	vocab2id = {'<UNK>': 0}
-	pos_id = 0
-	vocab_id = 0
+	pos_id = 1
+	vocab_id = 1
 
 	### VECTORIZING WCL
 	train_vocab = set()
