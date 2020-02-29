@@ -128,18 +128,21 @@ def default_train_eval_test():
 
 def iterative_training(iteration, include_previous_itr_true_samples, include_previous_itr_false_samples):
     current_task = Task.TASK_1
-    model_prefix = 'Task1-Iterative'
+    model_prefix = 'Task1-Iterative-Iteration_'
     eval_data_path = os.path.join('..', 'deft_corpus', 'data', 'test_files', 'subtask_1')
 
     CORPUS_PATH = os.path.join('..', 'deft_corpus', 'data', 'deft_files')
     MODEL_SAVE_PATH = os.path.join('..', 'resources')
+    EVAL_RESULTS_PATH = os.path.join('..', 'result', 'task1')
+    ZIP_RESULTS_PATH = os.path.join('..', 'result', 'task1')
 
     print("==> Begin iteration %d...<==\n" % (iteration))
 
     print("Attempting to load previous iteration's metadata...")
     prev_itr = iteration - 1
     try:
-        prev_itr_metadata = Serde.load_metadata(os.path.join(MODEL_SAVE_PATH, model_prefix + '_ITR-METADATA_' + str(prev_itr)))
+        prev_itr_metadata = Serde.load_metadata(os.path.join(MODEL_SAVE_PATH,
+                                                model_prefix + str(prev_itr) + '_ITR-METADATA'))
     except:
         print("\tError or none found")
         prev_itr_metadata = None
@@ -149,11 +152,11 @@ def iterative_training(iteration, include_previous_itr_true_samples, include_pre
         prev_itr_extra_train_samples = []
 
         if include_previous_itr_true_samples:
-            print('Including previous high-confidence true samples')
+            print('\tIncluding previous high-confidence true samples')
             prev_itr_extra_train_samples += prev_itr_metadata.high_confidence_true_samples
 
         if include_previous_itr_false_samples:
-            print('Including previous high-confidence false samples')
+            print('\tIncluding previous high-confidence false samples')
             prev_itr_extra_train_samples += prev_itr_metadata.high_confidence_false_samples
 
     if prev_itr_extra_train_samples is not None and len(prev_itr_extra_train_samples) == 0:
@@ -162,21 +165,23 @@ def iterative_training(iteration, include_previous_itr_true_samples, include_pre
     trained_model, train_metadata, _, _ = train(current_task, CORPUS_PATH, prev_itr_extra_train_samples)
     test_data, test_metadata = TASK_REGISTRY[current_task].prepare_evaluation_data(eval_data_path, train_metadata)
 
-    predictions = TASK_REGISTRY[current_task].evaluate(trained_model, test_data, test_metadata, train_metadata)
+    predictions = TASK_REGISTRY[current_task].evaluate(trained_model, test_data, test_metadata, train_metadata, EVAL_RESULTS_PATH, ZIP_RESULTS_PATH)
     test_results_metadata = TestSetEvaluationMetrics(predictions, test_metadata)
 
     test_results_metadata.print_report()
     if prev_itr_metadata is not None:
         test_results_metadata.compare(prev_itr_metadata)
 
-    save_model(trained_model, train_metadata, MODEL_SAVE_PATH, model_prefix)
+    save_model(trained_model, train_metadata, MODEL_SAVE_PATH, model_prefix + str(iteration))
+    Serde.save_metadata(test_results_metadata,
+                        os.path.join(MODEL_SAVE_PATH, model_prefix + '_ITR-METADATA_' + str(iteration)))
 
 
 
 
 if __name__ == '__main__':
     # default_train_eval_test()
-    iterative_training(1,
+    iterative_training(2,
                     include_previous_itr_true_samples=True,
                     include_previous_itr_false_samples=True)
 

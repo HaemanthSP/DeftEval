@@ -254,7 +254,7 @@ class Common:
         val_unzipped = list(zip(*val_combined))
         val_x, val_y = val_unzipped[0], val_unzipped[1]
 
-        return train_x, train_y, val_x, val_y
+        return list(train_x), list(train_y), list(val_x), list(val_y)
 
 
 # All members are tuples that hold the values that correspond to the input and the output, i.e., x & y
@@ -393,15 +393,12 @@ class Task1:
         y_extra = []
         if extra_dataset is not None:
             for sample in extra_dataset:
-                file, context, sent = sample
+                _, (file, context, sent, _) = sample
                 # term frequencies will not be used correctly as this data isn't from the train dataset
                 Task1.generate_primitives_and_vocabulary(file, context, sent, train_dataset.term_frequencies,
                                                         input_primitives,
                                                         x_extra, y_extra,
                                                         combined_vocabs, update_vocab=True)
-
-        if len(x_extra) > 0:
-            Task1.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_extra, y_extra, combined_vocabs, update_vocab=True)
 
         print("Encoding primitives")
         encoders = [Numberer(vocab) for vocab in combined_vocabs]
@@ -432,6 +429,8 @@ class Task1:
 
         # append the extra samples to the finalized training set directly
         if len(x_extra) > 0:
+            Task1.encode_primitives(x_extra, encoders, feature_vector_shapes, input_primitives,
+                                use_oov_placeholder=False)
             x_train += x_extra
             y_train += y_extra
             x_train, y_train = Common.random_shuffle_in_place(x_train, y_train)

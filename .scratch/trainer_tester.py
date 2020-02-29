@@ -186,7 +186,7 @@ class FScoreCustom(tf.keras.metrics.Metric):
 
 class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
-    EPOCHS = 1
+    EPOCHS = 50
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
                         InputPrimitive.POS_WPUNCT]
     EMBEDDING_DIM = 128
