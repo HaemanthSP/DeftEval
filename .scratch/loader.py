@@ -228,10 +228,23 @@ class Common:
 
 
     @staticmethod
-    def train_val_split(x_data, y_data, val_take_size):
+    def random_shuffle_in_place(list_a, list_b):
+        combined = list(zip(list_a, list_b))
+        random.shuffle(combined)
+        unzipped = list(zip(*combined))
+        return unzipped[0], unzipped[1]
+
+
+    @staticmethod
+    def train_val_split(x_data, y_data, val_percentage):
+        val_take_size = int(len(x_data) * val_percentage / 100)
+        print("Validation take size: %d" % (val_take_size))
+
+        assert len(x_data) == len(y_data)
+        assert len(x_data) > val_take_size
+
         combined = list(zip(x_data, y_data))
         random.shuffle(combined)
-        assert len(combined) > val_take_size
 
         train_combined = combined[:-val_take_size]
         val_combined = combined[-val_take_size:]
@@ -265,6 +278,9 @@ class ClassDistribution:
 
 
 class Task1:
+    SHARE_ENCODER_BETWEEN_TOKEN_AND_HEAD = True
+
+
     @staticmethod
     def load_evaluation_data(dataset_path):
         return Common.load_deft_data(Task.TASK_1, dataset_path, evaluation_data=True)
@@ -278,30 +294,35 @@ class Task1:
 
 
     @staticmethod
-    def generate_primitives_and_vocabulary(dataset, input_primitives, x, y, vocabulary_set, update_vocab, metadata=[]):
-        for file in tqdm(dataset.files):
-            for context in file.contexts:
-                for sent in context.sentences:
-                    feature_inputs = []
-                    for idx, primitive in enumerate(input_primitives):
-                        feature_input = features.Task1.get_feature_input(
-                            sent, primitive, dataset.term_frequencies)
-                        if update_vocab:
-                            vocabulary_set[idx].update(feature_input)
+    def generate_primitives_and_vocabulary(file,
+                                        context,
+                                        sentence,
+                                        term_frequencies,
+                                        input_primitives,
+                                        x, y,
+                                        vocabulary_set, update_vocab,
+                                        metadata=None):
+        feature_inputs = []
+        for idx, primitive in enumerate(input_primitives):
+            feature_input = features.Task1.get_feature_input(
+                sentence, primitive, term_frequencies)
+            if update_vocab:
+                vocabulary_set[idx].update(feature_input)
 
-                        feature_inputs.append(feature_input)
+            feature_inputs.append(feature_input)
 
-                    label = 0
-                    for token in sent.tokens:
-                        if token.tag != None and token.tag[2:] == 'Definition':
-                            label = 1
-                            break
+        label = 0
+        for token in sentence.tokens:
+            if token.tag != None and token.tag[2:] == 'Definition':
+                label = 1
+                break
 
-                    x.append(feature_inputs)
-                    y.append(label)
+        x.append(feature_inputs)
+        y.append(label)
 
-                    # add metadata specific to each instance for use during evaluation
-                    metadata.append((file, context, sent, label))
+        # add metadata specific to each instance for use during evaluation
+        if metadata is not None:
+            metadata.append((file, context, sentence, label))
 
 
     @staticmethod
@@ -352,21 +373,68 @@ class Task1:
 
 
     @staticmethod
-    def generate_model_train_inputs(train_dataset, input_primitives, feature_vector_length, valid_dataset_take_size):
+    def generate_model_train_inputs(train_dataset, extra_dataset, input_primitives, feature_vector_length, valid_dataset_percentage):
         x_train = []
         y_train = []
         combined_vocabs = [set([features.get_oov_placeholder(i)]) for i in input_primitives]
 
         print("Generating primitives and constructing vocabulary")
-        Task1.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_train, y_train, combined_vocabs, update_vocab=True)
+        for file in tqdm(train_dataset.files):
+            for context in file.contexts:
+                for sent in context.sentences:
+                    Task1.generate_primitives_and_vocabulary(file, context, sent, train_dataset.term_frequencies,
+                                                    input_primitives,
+                                                    x_train, y_train,
+                                                    combined_vocabs, update_vocab=True)
+
+        # in addition to the train dataset, process data that doesn't belong to the original training set
+        # here, we use the 'extra_dataset' parameter to pass through samples from the test set that were predicted with a high probability
+        x_extra = []
+        y_extra = []
+        if extra_dataset is not None:
+            for sample in extra_dataset:
+                file, context, sent = sample
+                # term frequencies will not be used correctly as this data isn't from the train dataset
+                Task1.generate_primitives_and_vocabulary(file, context, sent, train_dataset.term_frequencies,
+                                                        input_primitives,
+                                                        x_extra, y_extra,
+                                                        combined_vocabs, update_vocab=True)
+
+        if len(x_extra) > 0:
+            Task1.generate_primitives_and_vocabulary(train_dataset, input_primitives, x_extra, y_extra, combined_vocabs, update_vocab=True)
 
         print("Encoding primitives")
         encoders = [Numberer(vocab) for vocab in combined_vocabs]
+
+        if Task1.SHARE_ENCODER_BETWEEN_TOKEN_AND_HEAD:
+            try :
+                token_primitive_feature_idx = input_primitives.index(InputPrimitive.TOKEN)
+            except:
+                token_primitive_feature_idx = None
+            try :
+                head_primitive_feature_idx = input_primitives.index(InputPrimitive.HEAD)
+            except:
+                head_primitive_feature_idx = None
+
+            if token_primitive_feature_idx is not None and head_primitive_feature_idx is not None:
+                vocab_tokens = combined_vocabs[token_primitive_feature_idx]
+                vocab_heads = combined_vocabs[head_primitive_feature_idx]
+                assert vocab_heads.issubset(vocab_tokens) == True
+
+                encoders[head_primitive_feature_idx] = encoders[token_primitive_feature_idx].clone()
+
+
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task1.encode_primitives(x_train, encoders, feature_vector_shapes, input_primitives,
                                 use_oov_placeholder=False)
 
-        x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_take_size)
+        x_train, y_train, x_val, y_val = Common.train_val_split(x_train, y_train, valid_dataset_percentage)
+
+        # append the extra samples to the finalized training set directly
+        if len(x_extra) > 0:
+            x_train += x_extra
+            y_train += y_extra
+            x_train, y_train = Common.random_shuffle_in_place(x_train, y_train)
 
         train_dataset = Task1.create_tf_dataset(x_train, y_train, input_primitives)
         val_dataset = Task1.create_tf_dataset(x_val, y_val, input_primitives)
@@ -387,12 +455,18 @@ class Task1:
         combined_vocabs = combined_vocabs[0]
 
         print("Generating primitives and constructing vocabulary")
-        Task1.generate_primitives_and_vocabulary(test_dataset, input_primitives, x_test, y_test, combined_vocabs, update_vocab=False, metadata=test_metadata)
+        for file in tqdm(test_dataset.files):
+            for context in file.contexts:
+                for sent in context.sentences:
+                    Task1.generate_primitives_and_vocabulary(file, context, sent, test_dataset.term_frequencies,
+                                                    input_primitives,
+                                                    x_test, y_test,
+                                                    combined_vocabs, update_vocab=False, metadata=test_metadata)
 
         print("Encoding primitives")
         feature_vector_shapes = [feature_vector_length] * len(input_primitives)
         Task1.encode_primitives(x_test, encoders, feature_vector_shapes, input_primitives,
-                                use_oov_placeholder=True)
+                                use_oov_placeholder=False)
 
         test_dataset = Task1.create_tf_dataset(x_test, y_test, input_primitives)
         for idx, vocab in enumerate(combined_vocabs):

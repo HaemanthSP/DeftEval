@@ -13,7 +13,7 @@ from tensorflow.python.keras.utils.generic_utils import to_list
 
 class Common:
     BATCH_SIZE = 64
-    VALIDATION_TAKE_SIZE = 1000
+    VALIDATION_SET_PERCENTAGE = 10
 
     LOADER_TASK_REGISTRY = {
         Task.TASK_1 : loader.Task1,
@@ -24,7 +24,7 @@ class Common:
 
 
     @staticmethod
-    def prepare_training_data(task, dataset_path, input_primitives):
+    def prepare_training_data(task, dataset_path, extra_train_samples, input_primitives):
         print("Loading dataset")
         raw_train_dataset = loader.Common.load_deft_data(task, os.path.join(dataset_path, 'train'))
         raw_test_dataset = loader.Common.load_deft_data(task, os.path.join(dataset_path, 'dev'))
@@ -36,7 +36,7 @@ class Common:
 
         print("Transforming dataset")
         train_data, valid_data, vocabs, encoders, train_class_dist = Common.LOADER_TASK_REGISTRY[task].generate_model_train_inputs(
-            raw_train_dataset, input_primitives, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH, Common.VALIDATION_TAKE_SIZE)
+            raw_train_dataset, extra_train_samples, input_primitives, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH, Common.VALIDATION_SET_PERCENTAGE)
         test_data, test_metadata = Common.LOADER_TASK_REGISTRY[task].generate_model_test_inputs(
             raw_test_dataset, input_primitives, encoders, vocabs, Common.TASK_REGISTRY[task].FEATURE_VECTOR_LENGTH)
 
@@ -116,10 +116,14 @@ class Common:
 
         return class_weights
 
-@tf.keras.utils.register_keras_serializable(package='.scratch')
-class CustomFScore(tf.keras.metrics.Metric):
-    def __init__(self, name='F1Score', class_id=None, dtype=None):
-        super(CustomFScore, self).__init__(name=name, dtype=dtype)
+    @staticmethod
+    def zip_results(results_dir, zip_filepath):
+        shutil.make_archive(zip_filepath, 'zip', results_dir)
+
+
+class FScoreCustom(tf.keras.metrics.Metric):
+    def __init__(self, name='f-score', class_id=None, dtype=None):
+        super(FScoreCustom, self).__init__(name=name, dtype=dtype)
 
         self.class_id = class_id
         default_threshold = 0.5
@@ -176,21 +180,20 @@ class CustomFScore(tf.keras.metrics.Metric):
         config = {
             'class_id': self.class_id
         }
-        base_config = super(CustomFScore, self).get_config()
+        base_config = super(FScoreCustom, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 
 class Task1:
     FEATURE_VECTOR_LENGTH = 150     # Doubles as the maximum sentence length
-    EPOCHS = 50
+    EPOCHS = 1
     INPUT_PRIMITIVES = [InputPrimitive.TOKEN,
-                        InputPrimitive.POS_WPUNCT,
-                        InputPrimitive.HEAD,
-                        InputPrimitive.DEP]
+                        InputPrimitive.POS_WPUNCT]
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
-    ES_MIN_DELTA = 0.01
-    ES_PATIENCE = 10
+    ES_MIN_DELTA = 0.005
+    ES_PATIENCE = 15
+    # PRETRAINED_EMBEDDING_PATH = '..\\resources\\fasttext.600B.300d.metadata'
     PRETRAINED_EMBEDDING_PATH = '..\\resources\\glove.840B.300d.metadata'
 
 
@@ -215,8 +218,8 @@ class Task1:
 
 
     @staticmethod
-    def prepare_training_data(dataset_path):
-        return Common.prepare_training_data(Task.TASK_1, dataset_path, Task1.INPUT_PRIMITIVES)
+    def prepare_training_data(dataset_path, extra_train_samples):
+        return Common.prepare_training_data(Task.TASK_1, dataset_path, extra_train_samples, Task1.INPUT_PRIMITIVES)
 
 
     @staticmethod
@@ -230,23 +233,32 @@ class Task1:
                 'trainable': True,
             } for i in vocab_size_x]
 
-        token_primitive_feature_idx = Task1.INPUT_PRIMITIVES.index(InputPrimitive.TOKEN)
-        print("Loading pretrained embeddings for word tokens")
-        pretrained_embeds, pretained_dims = Task1.load_pretrained_embeddings(train_metadata.encoders[0][token_primitive_feature_idx],
-                                                                            vocab_size_x[token_primitive_feature_idx],
-                                                                            Task1.PRETRAINED_EMBEDDING_PATH)
-        model_gen_params[token_primitive_feature_idx]['embedding_initializer'] = pretrained_embeds
-        model_gen_params[token_primitive_feature_idx]['embedding_dim'] = pretained_dims
-        model_gen_params[token_primitive_feature_idx]['trainable'] = False
+        try :
+            token_primitive_feature_idx = Task1.INPUT_PRIMITIVES.index(InputPrimitive.TOKEN)
+        except:
+            token_primitive_feature_idx = None
+
+        if token_primitive_feature_idx is not None:
+            print("Loading pretrained embeddings for word tokens")
+            pretrained_embeds, pretained_dims = Task1.load_pretrained_embeddings(train_metadata.encoders[0][token_primitive_feature_idx],
+                                                                                vocab_size_x[token_primitive_feature_idx],
+                                                                                Task1.PRETRAINED_EMBEDDING_PATH)
+            model_gen_params[token_primitive_feature_idx]['embedding_initializer'] = pretrained_embeds
+            model_gen_params[token_primitive_feature_idx]['embedding_dim'] = pretained_dims
+            model_gen_params[token_primitive_feature_idx]['trainable'] = False
 
         model = experimental.create_multi_feature_model(model_gen_params)
         model.compile(loss='binary_crossentropy',
                     optimizer=optimizers.Adam(Task1.LEARNING_RATE),
-                    metrics=[metrics.Precision(), metrics.Recall(), CustomFScore()])
+                    metrics=[metrics.Precision(), metrics.Recall(), FScoreCustom()])
         model.summary()
 
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-            monitor='val_F1Score', min_delta=Task1.ES_MIN_DELTA, patience=Task1.ES_PATIENCE, mode='max',restore_best_weights=True)
+            monitor='val_f-score',
+            min_delta=Task1.ES_MIN_DELTA,
+            patience=Task1.ES_PATIENCE,
+            mode='max',
+            restore_best_weights=True)
 
         model.fit(train_data,
                 epochs=Task1.EPOCHS,
@@ -263,29 +275,40 @@ class Task1:
 
 
     @staticmethod
-    def evaluate(model, test_data, test_metadata, train_metadata, results_path):
+    def evaluate(model, test_data, test_metadata, train_metadata, results_path=None, zip_path=None):
         # test_metadata = [(file, context, sent, label)]
+
+        # recompile model, in case it was loaded from disk
+        model.compile(loss='binary_crossentropy',
+                    optimizer=optimizers.Adam(Task1.LEARNING_RATE),
+                    metrics=[metrics.Precision(), metrics.Recall(), FScoreCustom()])
+
         predictions = model.predict(test_data)
         assert predictions.shape[0] == len(test_metadata)
 
-        file_handles = {}
+        if results_path is not None:
+            file_handles = {}
+            for i in range(0, len(predictions)):
+                prediction = 1 if predictions[i] > 0.5 else 0
+                sentence = test_metadata[i][2]
+                filename = ntpath.basename(test_metadata[i][0].filename)
+                output_filepath = os.path.join(results_path, filename)
 
-        for i in range(0, len(predictions)):
-            prediction = 1 if predictions[i] > 0.5 else 0
-            sentence = test_metadata[i][2]
-            filename = ntpath.basename(test_metadata[i][0].filename)
-            output_filepath = os.path.join(results_path, filename)
+                if output_filepath in file_handles:
+                    output_filehandle = file_handles[output_filepath]
+                else:
+                    output_filehandle = open(output_filepath, mode='w', encoding='utf-8')
+                    file_handles[output_filepath] = output_filehandle
 
-            if output_filepath in file_handles:
-                output_filehandle = file_handles[output_filepath]
-            else:
-                output_filehandle = open(output_filepath, mode='w', encoding='utf-8')
-                file_handles[output_filepath] = output_filehandle
+                output_filehandle.write('%s\t%d\n' % (sentence.raw_sent, prediction))
 
-            output_filehandle.write('%s\t%d\n' % (sentence.raw_sent, prediction))
+            for handle in file_handles.values():
+                handle.close()
 
-        for handle in file_handles.values():
-            handle.close()
+        if zip_path is not None:
+            Common.zip_results(results_path, zip_path)
+
+        return predictions
 
 
 # Deferred init.

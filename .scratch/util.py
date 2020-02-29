@@ -1,5 +1,6 @@
 from common_imports import *
 import pickle
+import copy
 
 class Serde:
     @staticmethod
@@ -21,8 +22,8 @@ class Serde:
 
 
     @staticmethod
-    def load_tf_model(path, custom_objects=None):
-        return tf.keras.models.load_model(path, custom_objects)
+    def load_tf_model(path):
+        return tf.keras.models.load_model(path, compile=False)
 
 
 class Numberer:
@@ -58,6 +59,10 @@ class Numberer:
 
     def max_number(self):
         return len(self.n2v)
+
+
+    def clone(self):
+        return copy.deepcopy(self)
 
 
 class Preprocessor:
