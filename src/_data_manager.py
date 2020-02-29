@@ -84,6 +84,63 @@ class F1Score(tf.keras.metrics.Metric):
         return dict(list(base_config.items()) + list(config.items()))
 
 
+def build_model3(maxlen, embedding_weights=None, vocab_size=None):
+	"""
+	combine features from various inputs and build a model
+	"""
+	input1 = tf.keras.Input(shape=(maxlen[0],), name="Input_word", dtype=tf.int32)
+	input2 = tf.keras.Input(shape=(maxlen[0],), name="Input_pos", dtype=tf.int8)
+	input3 = tf.keras.Input(shape=(maxlen[1],), name="Input_head", dtype=tf.int32)
+	input4 = tf.keras.Input(shape=(maxlen[1],), name="Input_modif", dtype=tf.int32)
+	input5 = tf.keras.Input(shape=(maxlen[1],), name="Input_deps", dtype=tf.int8)
+
+	word_embedder = Embedding(vocab_size[0], 300, embeddings_initializer=Constant(embedding_weights[0]), trainable=False, mask_zero=True)
+	# embed_1 = Embedding(vocab_size[0], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)(input1)
+	# embed_2 = Embedding(vocab_size[1], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)(input2)
+	pos_embedder = Embedding(vocab_size[1], 100, trainable=True, mask_zero=True)
+	deps_embedder = Embedding(vocab_size[2], 100, trainable=True, mask_zero=True)
+
+	concate1 = tf.keras.layers.concatenate([word_embedder(input1), pos_embedder(input2)])
+	output1 = Bidirectional(LSTM(100, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(concate1)
+	output1 = Conv1D(128, 3, activation='relu')(output1)
+	output1 = MaxPooling1D(pool_size=2)(output1)
+	output1 = Bidirectional(LSTM(50, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(output1)
+	output1 = Conv1D(64, 3, activation='relu')(output1)
+	output1 = MaxPooling1D(pool_size=2)(output1)
+	output1 = Flatten()(output1)
+
+	concate2 = tf.keras.layers.concatenate([word_embedder(input3), word_embedder(input4), deps_embedder(input5)])
+	# concate2 = tf.keras.layers.concatenate([word_embedder(input3), word_embedder(input4)])
+	# output2 = Bidirectional(LSTM(100, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(concate2)
+	# output2 = Conv1D(128, 3, activation='relu')(output2)
+	output2 = Conv1D(128, 3, activation='relu')(concate2)
+	output2 = MaxPooling1D(pool_size=2)(output2)
+	# output2 = Bidirectional(LSTM(50, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(output2)
+	# output2 = Bidirectional(LSTM(50, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(output2)
+	output2 = Conv1D(64, 3, activation='relu')(output2)
+	output2 = MaxPooling1D(pool_size=2)(output2)
+	output2 = Flatten()(output2)
+
+
+	concate = tf.keras.layers.concatenate([output1, output2])
+
+	output = Dense(48)(concate)
+	output = Dropout(0.5)(output)
+	output = Dense(24)(output)
+	output = Dropout(0.5)(output)
+	output = Dense(1, activation='sigmoid')(output)
+
+	inputs_list = [input1, input2, input3, input4, input5]
+	model = tf.keras.Model(inputs=inputs_list, outputs=output)
+	model.compile(loss='binary_crossentropy',
+		optimizer='adam',
+		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy', F1Score()])
+		# metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
+	print(model.summary())
+
+	return model
+
+
 def build_model2(maxlen, embedding_weights=None, vocab_size=None):
 	"""
 	combine features from various inputs and build a model
@@ -91,6 +148,7 @@ def build_model2(maxlen, embedding_weights=None, vocab_size=None):
 	input1 = tf.keras.Input(shape=(maxlen,), name="Input_1", dtype=tf.int32)
 	input2 = tf.keras.Input(shape=(maxlen,), name="Input_2", dtype=tf.int8)
 	embed_1 = Embedding(vocab_size[0], 300, embeddings_initializer=Constant(embedding_weights[0]), trainable=False, mask_zero=True)(input1)
+	# embed_1 = Embedding(vocab_size[0], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)(input1)
 	# embed_2 = Embedding(vocab_size[1], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)(input2)
 	embed_2 = Embedding(vocab_size[1], 100, trainable=True, mask_zero=True)(input2)
 	concate = tf.keras.layers.concatenate([embed_1, embed_2])
