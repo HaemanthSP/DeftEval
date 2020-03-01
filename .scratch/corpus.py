@@ -29,6 +29,7 @@ class Sentence:
         self.line_no = line_num
         self.nlp_annotations = None
         self.raw_sent = raw_sent
+        self.task1_label = None
 
     def add_token(self, token, filename=None, start_char=None, end_char=None, tag=None, tag_id=None, root_id=None, relation=None):
         new_token = Token(token, filename, start_char, end_char, tag, tag_id, root_id, relation)

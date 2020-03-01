@@ -192,7 +192,7 @@ class Task1:
     EMBEDDING_DIM = 128
     LEARNING_RATE = 0.001
     ES_MIN_DELTA = 0.005
-    ES_PATIENCE = 15
+    ES_PATIENCE = 10
     # PRETRAINED_EMBEDDING_PATH = '..\\resources\\fasttext.600B.300d.metadata'
     PRETRAINED_EMBEDDING_PATH = '..\\resources\\glove.840B.300d.metadata'
 

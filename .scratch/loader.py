@@ -312,10 +312,13 @@ class Task1:
             feature_inputs.append(feature_input)
 
         label = 0
-        for token in sentence.tokens:
-            if token.tag != None and token.tag[2:] == 'Definition':
-                label = 1
-                break
+        if sentence.task1_label is not None:
+            label = sentence.task1_label
+        else:
+            for token in sentence.tokens:
+                if token.tag != None and token.tag[2:] == 'Definition':
+                    label = 1
+                    break
 
         x.append(feature_inputs)
         y.append(label)
