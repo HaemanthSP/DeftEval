@@ -97,8 +97,8 @@ def build_model3(maxlen, embedding_weights=None, vocab_size=None):
 	word_embedder = Embedding(vocab_size[0], 300, embeddings_initializer=Constant(embedding_weights[0]), trainable=False, mask_zero=True)
 	# embed_1 = Embedding(vocab_size[0], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)(input1)
 	# embed_2 = Embedding(vocab_size[1], 100, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)(input2)
-	pos_embedder = Embedding(vocab_size[1], 100, trainable=True, mask_zero=True)
-	deps_embedder = Embedding(vocab_size[2], 100, trainable=True, mask_zero=True)
+	pos_embedder = Embedding(vocab_size[1], 32, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)
+	deps_embedder = Embedding(vocab_size[2], 32, embeddings_regularizer=regularizers.l2(0.001), trainable=True, mask_zero=True)
 
 	concate1 = tf.keras.layers.concatenate([word_embedder(input1), pos_embedder(input2)])
 	output1 = Bidirectional(LSTM(100, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(concate1)
@@ -113,20 +113,20 @@ def build_model3(maxlen, embedding_weights=None, vocab_size=None):
 	# concate2 = tf.keras.layers.concatenate([word_embedder(input3), word_embedder(input4)])
 	# output2 = Bidirectional(LSTM(100, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(concate2)
 	# output2 = Conv1D(128, 3, activation='relu')(output2)
-	output2 = Conv1D(128, 3, activation='relu')(concate2)
+	output2 = Conv1D(64, 3, activation='relu')(concate2)
 	output2 = MaxPooling1D(pool_size=2)(output2)
 	# output2 = Bidirectional(LSTM(50, return_sequences=True, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(output2)
 	# output2 = Bidirectional(LSTM(50, kernel_regularizer=regularizers.l2(0.001), recurrent_regularizer=regularizers.l2(0.001)))(output2)
-	output2 = Conv1D(64, 3, activation='relu')(output2)
+	output2 = Conv1D(32, 3, activation='relu')(output2)
 	output2 = MaxPooling1D(pool_size=2)(output2)
 	output2 = Flatten()(output2)
 
 
 	concate = tf.keras.layers.concatenate([output1, output2])
 
-	output = Dense(48)(concate)
-	output = Dropout(0.5)(output)
-	output = Dense(24)(output)
+	# output = Dense(48)(concate)
+	# output = Dropout(0.5)(output)
+	output = Dense(24)(concate)
 	output = Dropout(0.5)(output)
 	output = Dense(1, activation='sigmoid')(output)
 
