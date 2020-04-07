@@ -8,3 +8,6 @@ semeval2020.pdf	PDF file for SemEval 2020
 coling2020.sty	LaTeX style file for Coling 2020
 semeval2020.tex	LaTeX sample file for SemEval 2020
 semeval2020.bib	LaTeX bib file for SemEval 2020
+
+* Info
+http://alt.qcri.org/semeval2020/index.php?id=papers
