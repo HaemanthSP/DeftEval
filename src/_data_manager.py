@@ -279,6 +279,43 @@ def build_model(x,y,model_type,lstm_units=100,validation_data='', embedding_weig
 	#nnmodel.fit(x,y,epochs=epochs,batch_size=batch_size,validation_data=validation_data)
 	return nnmodel
 
+def build_baseline1(x,y,model_type,lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
+	# hyperparams
+	kernel_size = 3
+	filters = 100
+	pool_size = 4
+	strides=1
+	# train opts
+	epochs=10
+	batch_size=100
+	nnmodel = Sequential()
+
+	nnmodel.add(Conv1D(filters,
+		kernel_size,
+		padding='valid',
+		activation='relu',
+		strides=strides,
+		input_shape=(x.shape[1], x.shape[2])))
+	nnmodel.add(MaxPooling1D(pool_size=pool_size))
+
+	if model_type=='cnn':
+		nnmodel.add(Flatten())
+		nnmodel.add(Dropout(0.5))
+	elif model_type=='cblstm':
+		nnmodel.add(Bidirectional(LSTM(lstm_units)))
+		nnmodel.add(Dropout(0.5))
+	else:
+		sys.exit('Model type must be "cnn" or "blstm"')
+	nnmodel.add(Dense(1))
+	nnmodel.add(Activation('sigmoid'))
+	nnmodel.compile(loss='binary_crossentropy',
+		optimizer='adam',
+		metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
+	print('Train with ',len(x))
+	print(nnmodel.summary())
+	#nnmodel.fit(x,y,epochs=epochs,batch_size=batch_size,validation_data=validation_data)
+	return nnmodel
+
 def avg(nparray):
 	return np.mean(nparray,axis=0)
 

@@ -272,7 +272,7 @@ if __name__ == '__main__':
 	embeddings=args['word_vectors']
 	modelwords,vocabwords,dimwords=_data_manager.load_embeddings(embeddings)
 
-	if True:
+	if False:
 		# Redirect the stdout
 		sys.stdout = open(os.devnull, "w")
 		codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
@@ -285,14 +285,14 @@ if __name__ == '__main__':
 	deft=_data_manager.Dataset('../task1_data/train_combined.deft','deft')
 	deft.load_deft()
 
+	# load labels as np arrays
+	y_deft=np.array(deft.labels, dtype='float32')
+
 	deft_dev =_data_manager.Dataset('../task1_data/dev_combined.deft','deft')
 	deft_dev.load_deft()
 
 	# load labels as np arrays
 	y_deft_dev=np.array(deft_dev.labels, dtype='float32')
-
-	# load labels as np arrays
-	y_deft=np.array(deft.labels, dtype='float32')
 
 	# preprocess
 	# get token and dependencies (head, modifier) maxlens and pos and dep ids
@@ -345,7 +345,7 @@ if __name__ == '__main__':
 	# vectorize wcl, needs to be done in second pass to have maxlen
 	metadata = maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords, dimwords, args['dependencies']
 	X_train_enriched = enrich_X(deft, metadata, modelwords)
-	X_train,y_train=shuffle(X_train_enriched,y_deft,random_state=0)
+	X_train,y_train=shuffle(X_train_enriched, y_deft,random_state=0)
 
 	### VECTORIZING W00
 
@@ -362,10 +362,15 @@ if __name__ == '__main__':
         monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)
 
 	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
-	nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100)
+	# nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
+	nnmodel=_data_manager.build_baseline1(X_train, y_train ,"cblstm", lstm_units=100)
 	gc.collect()
+	print("training data shape", X_train.shape)
+	print("valid data shape", X_valid.shape)
 
-	nnmodel.fit(X_train, y_train,epochs=10,batch_size=128,validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
+	# nnmodel.fit(X_train, y_train, epochs=100, batch_size=256, validation_data=[X_valid, y_valid], callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
+	nnmodel.fit(X_train, y_train, epochs=100, batch_size=256, validation_data=(X_valid, y_valid), callbacks=[early_stopping_callback])
+	# nnmodel.fit(X_train, y_train, epochs=100, batch_size=128, validation_spilt=0.10, callbacks=[early_stopping_callback], class_weight=calculate_class_weights(y_train))
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
 	print('Saving model to: ',outpath)
@@ -389,8 +394,8 @@ if __name__ == '__main__':
 	evaluate('../task1_data/dev_combined.deft', outpath)
 
 	# Redirect the stdout
-	sys.stdout = open(os.devnull, "w")
-	codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
+	# sys.stdout = open(os.devnull, "w")
+	# codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
 	#codalab_evaluation('../task1_data/dev/', '../result/task1/', outpath, embedding_data=[modelwords,vocabwords,dimwords])
 	# Redirect the stdout
-	sys.stdout = sys.__stdout__
+	# sys.stdout = sys.__stdout__
