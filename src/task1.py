@@ -58,7 +58,7 @@ def pad_words(tokens,maxlen,append_tuple=False):
 				tokens.append(('UNK','UNK'))
 		return tokens
 
-def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
+def enrich_X(dataset, metadata, modelwords, POS_EMBED=False):
 	maxlen, deps2ids, ids2deps, poss2ids, ids2poss, vocabwords, dimwords, dependencies = metadata
 	print('Vectorizing dataset')
 	X=[]
@@ -126,10 +126,12 @@ def enrich_X(dataset, metadata, modelwords, POS_EMBED=True):
 				dep_idx=deps2ids[dep_labels[idx]]
 			else:
 				dep_idx=-1
-			dep_vec=np.zeros(len(deps2ids)+len(poss2ids)+2)
+
+			dep_vec_len = len(deps2ids) + 1 + ((len(poss2ids) + 1) if POS_EMBED else 0)
+			dep_vec=np.zeros(dep_vec_len)
 			dep_vec[dep_idx]=1
 			avg_label_vec=np.concatenate([avg,dep_vec])
-			avg_sent_matrix.append(np.concatenate([avg,np.zeros(len(deps2ids)+len(poss2ids)+2)]))
+			avg_sent_matrix.append(np.concatenate([avg,np.zeros(dep_vec_len)]))
 			avg_label_sent_matrix.append(avg_label_vec)
 		wp=np.array(avg_sent_matrix, dtype='float16')
 		labs=np.array(avg_label_sent_matrix, dtype='float16')
@@ -363,7 +365,7 @@ if __name__ == '__main__':
 
 	X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 	# nnmodel=_data_manager.build_model(X_train,y_train,"cblstm",lstm_units=100)
-	nnmodel=_data_manager.build_baseline1(X_train, y_train ,"cblstm", lstm_units=100)
+	nnmodel=_data_manager.build_baseline0(X_train, y_train ,"cblstm", lstm_units=100)
 	gc.collect()
 	print("training data shape", X_train.shape)
 	print("valid data shape", X_valid.shape)
