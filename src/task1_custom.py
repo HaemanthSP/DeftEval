@@ -283,32 +283,41 @@ if __name__ == '__main__':
 	# metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos, dep2id, id2dep, dep_maxlen
 	metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos
 	X_train_word = encode_X_words(deft, metadata)
-	X_train_pos = encode_X_pos(deft, metadata)
+	# X_train_pos = encode_X_pos(deft, metadata)
 	# X_train_head, X_train_modifier, X_train_deps = encode_X_deps(deft, metadata)
-	X_train_word, X_train_pos, y_train = shuffle(X_train_word, X_train_pos, y_deft, random_state=0)
+	X_train_word, y_train = shuffle(X_train_word, y_deft, random_state=0)
+	# X_train_word, X_train_pos, y_train = shuffle(X_train_word, X_train_pos, y_deft, random_state=0)
 	# X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_train = shuffle(
 		# X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_deft, random_state=0)
 
 	print("\n\n\ntraining shape: ", X_train_word.shape)
+	print("data sample: ", X_train_word[0])
 
 	print('Vectorizing deft_dev')
 	X_test_word = encode_X_words(deft_dev, metadata)
-	X_test_pos = encode_X_pos(deft_dev, metadata)
+	# X_test_pos = encode_X_pos(deft_dev, metadata)
 	# X_test_head, X_test_modifier, X_test_deps = encode_X_deps(deft_dev, metadata)
 	y_test = y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
-        monitor='val_F1Score', min_delta=0.0001, patience=10, restore_best_weights=True)
+        # monitor='val_F1Score', min_delta=0.0001, patience=10, restore_best_weights=True)
+        monitor='val_loss', min_delta=0.001, patience=10, restore_best_weights=True)
 
-	X_train_word, X_valid_word, X_train_pos, X_valid_pos, y_train, y_valid = train_test_split(X_train_word, X_train_pos, y_train, test_size=0.10, random_state=42)
+	X_train_word, X_valid_word, y_train, y_valid = train_test_split(X_train_word, y_train, test_size=0.10, random_state=42)
+	# X_train_word, X_valid_word, X_train_pos, X_valid_pos, y_train, y_valid = train_test_split(X_train_word, X_train_pos, y_train, test_size=0.10, random_state=42)
 	# X_train_word, X_valid_word, X_train_pos, X_valid_pos, X_train_head, X_valid_head, X_train_modifier, X_valid_modifier, X_train_deps, X_valid_deps, y_train, y_valid = train_test_split(X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_train, test_size=0.10, random_state=42)
 
 	# valid_inps = [X_valid_word, X_valid_pos, X_valid_head, X_valid_modifier, X_valid_deps]
 	# train_inps = [X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps]
 	# test_inps = [X_test_word, X_test_pos, X_test_head, X_test_modifier, X_test_deps]
-	valid_inps = [X_valid_word, X_valid_pos]
-	train_inps = [X_train_word, X_train_pos]
-	test_inps = [X_test_word, X_test_pos]
+
+	# valid_inps = [X_valid_word, X_valid_pos]
+	# train_inps = [X_train_word, X_train_pos]
+	# test_inps = [X_test_word, X_test_pos]
+
+	valid_inps = X_valid_word
+	train_inps = X_train_word
+	test_inps = X_test_word
 
 	print("Validation Inputs")
 	print(valid_inps)
@@ -320,7 +329,8 @@ if __name__ == '__main__':
 	print("Shape of the embedding: ", embedding_weights.shape)
 
 	# nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100, embedding_weights=embedding_weights, vocab_size=len(id2vocab))
-	nnmodel=_data_manager.build_model2(maxlen, embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos)])
+	# nnmodel=_data_manager.build_model2(maxlen, embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos)])
+	nnmodel=_data_manager.build_baseline_bilstm(maxlen, vocab_size=len(id2vocab))
 	# nnmodel=_data_manager.build_model3([maxlen, dep_maxlen], embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos), len(id2dep)])
 	gc.collect()
 
@@ -328,10 +338,10 @@ if __name__ == '__main__':
 	nnmodel.fit(train_inps,
 			    y_train,
 				epochs=100,
-				batch_size=128,
-				validation_data=[valid_inps, y_valid],
-				callbacks=[early_stopping_callback],
-				class_weight=_data_manager.calculate_class_weights(y_train))
+				batch_size=64,
+				validation_data=(valid_inps, y_valid),
+				callbacks=[early_stopping_callback])
+				# class_weight=_data_manager.calculate_class_weights(y_train))
 	nnmodel.save(outpath)
 	save_metadata(metadata, outpath)
 	print('Saving model to: ',outpath)
@@ -355,7 +365,7 @@ if __name__ == '__main__':
 	print(classification_report(y_valid, preds2))
 
 	# Analyse the output of the eval
-	evaluate('../task1_data/dev_combined.deft', outpath)
+	# evaluate('../task1_data/dev_combined.deft', outpath)
 
 	# Redirect the stdout
 	# codalab_evaluation('../deft_corpus/data/test_files/subtask_1', '../result/task1/', outpath, embedding_data=[w2v_model,w2v_vocab,w2v_dim])

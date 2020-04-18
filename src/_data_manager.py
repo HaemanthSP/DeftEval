@@ -316,7 +316,8 @@ def build_baseline1(x,y,model_type,lstm_units=100,validation_data='', embedding_
 	#nnmodel.fit(x,y,epochs=epochs,batch_size=batch_size,validation_data=validation_data)
 	return nnmodel
 
-def build_baseline0(x,y,model_type,lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
+def build_baseline0(x,y,lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
+
 	# hyperparams
 	nnmodel = Sequential()
 	nnmodel.add(Bidirectional(LSTM(lstm_units), input_shape=(x.shape[1], x.shape[2])))
@@ -329,6 +330,24 @@ def build_baseline0(x,y,model_type,lstm_units=100,validation_data='', embedding_
 					optimizer='adam',
 					metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
 	print('Train with ',len(x))
+	print(nnmodel.summary())
+	return nnmodel
+
+def build_baseline_bilstm(maxlen, vocab_size=None):
+
+	# hyperparams
+	nnmodel = Sequential()
+	nnmodel.add(Embedding(vocab_size, 300, input_length=maxlen, trainable=True, mask_zero=True))
+	nnmodel.add(Bidirectional(LSTM(200)))
+	nnmodel.add(Dropout(0.5))
+	nnmodel.add(Dense(50, activation='relu'))
+	nnmodel.add(Dropout(0.5))
+	nnmodel.add(Dense(1))
+	nnmodel.add(Activation('sigmoid'))
+	nnmodel.compile(loss='binary_crossentropy',
+					optimizer='adam',
+					metrics=[metrics.Precision(), metrics.Recall(), 'accuracy', F1Score()])
+					# metrics=[metrics.Precision(), metrics.Recall(), 'accuracy'])
 	print(nnmodel.summary())
 	return nnmodel
 
