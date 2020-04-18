@@ -186,7 +186,7 @@ if __name__ == '__main__':
 				# '-p', '..\\resources\\cnn_glove']
 
 	parser = ArgumentParser()
-	parser.add_argument('-wv', '--word-vectors', help='Vector file with words', required=True)
+	parser.add_argument('-wv', '--word-vectors', help='Vector file with words')
 	parser.add_argument('-p', '--path', help='Use or save keras model', required=True)
 	parser.add_argument('-e', '--eval', help='Evaluate the model', default=False, type=bool)
 
@@ -200,7 +200,7 @@ if __name__ == '__main__':
 
 	# Load embedding
 	embeddings=args['word_vectors']
-	w2v_model,w2v_vocab,w2v_dim=_data_manager.load_embeddings(embeddings)
+	# w2v_model,w2v_vocab,w2v_dim=_data_manager.load_embeddings(embeddings)
 
 	if args['eval']:
 		# evaluate()
@@ -323,10 +323,10 @@ if __name__ == '__main__':
 	print(valid_inps)
 	print("\n\n")
 	# Build the embedding matrix 
-	embedding_weights = [w2v_model[id2vocab[idx]] if id2vocab[idx] in w2v_vocab else np.zeros(w2v_dim)
-						 for idx in range(len(id2vocab))]
-	embedding_weights = np.array(embedding_weights, dtype='float32')
-	print("Shape of the embedding: ", embedding_weights.shape)
+	# embedding_weights = [w2v_model[id2vocab[idx]] if id2vocab[idx] in w2v_vocab else np.zeros(w2v_dim)
+						#  for idx in range(len(id2vocab))]
+	# embedding_weights = np.array(embedding_weights, dtype='float32')
+	# print("Shape of the embedding: ", embedding_weights.shape)
 
 	# nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100, embedding_weights=embedding_weights, vocab_size=len(id2vocab))
 	# nnmodel=_data_manager.build_model2(maxlen, embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos)])

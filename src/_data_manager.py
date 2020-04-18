@@ -338,7 +338,7 @@ def build_baseline_bilstm(maxlen, vocab_size=None):
 	# hyperparams
 	nnmodel = Sequential()
 	nnmodel.add(Embedding(vocab_size, 300, input_length=maxlen, trainable=True, mask_zero=True))
-	nnmodel.add(Bidirectional(LSTM(200)))
+	nnmodel.add(Bidirectional(LSTM(100)))
 	nnmodel.add(Dropout(0.5))
 	nnmodel.add(Dense(50, activation='relu'))
 	nnmodel.add(Dropout(0.5))
