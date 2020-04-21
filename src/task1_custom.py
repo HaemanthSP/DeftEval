@@ -139,7 +139,6 @@ def evaluate(datapath, model_path):
 	print("Total number of false predictions: %s" %(count))
 
 
-
 def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embedding_path=None):
 	# Load W2V embedding
 	print("Loading w2v embedding")

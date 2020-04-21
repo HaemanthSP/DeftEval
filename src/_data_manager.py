@@ -279,7 +279,7 @@ def build_model(x,y,model_type,lstm_units=100,validation_data='', embedding_weig
 	#nnmodel.fit(x,y,epochs=epochs,batch_size=batch_size,validation_data=validation_data)
 	return nnmodel
 
-def build_baseline1(x,y,model_type,lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
+def build_baseline1(x,y,model_type='cblstm',lstm_units=100,validation_data='', embedding_weights=None, vocab_size=None):
 	# hyperparams
 	kernel_size = 3
 	filters = 100
