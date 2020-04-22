@@ -11,18 +11,17 @@
 | SADE | Google-w2v | Tokens, Deps | 0.72 | 0.58 | 0.64 |
 | Bilstm | Glove vector | Tokens, Deps | 0.74 | 0.63 | 0.68 |
 | Bilstm | Google-w2v | Tokens, Deps | 0.71 | 0.6 | 0.65 |
-| Bilstm | Self trained | Tokens | 0.74 | 0.60 | 0.66 |
 
 --
 -----
 
 | Model | W2V | Feats | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
-| SADE | Glove vector | Tokens | | | |
-| SADE | Google-w2v | Tokens | | | |
+| SADE | Glove vector | Tokens | 0.785 | 0.59 | 0.675 |
+| SADE | Google-w2v | Tokens | 0.775 | 0.515 | 0.615 |
 | Bilstm | Glove vector | Tokens | 0.70 | 0.64 | 0.67 |
 | Bilstm | Google-w2v | Tokens | 0.70 | 0.61 | 0.65 |
-
+| Bilstm | Self trained | Tokens | 0.74 | 0.60 | 0.66 |
 
 
 # Feat
