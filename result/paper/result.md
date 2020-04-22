@@ -2,6 +2,8 @@
 
 * SADE : Syntax aware definition extraction
 
+--
+----
 
 | Model | W2V | Feats | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
@@ -11,8 +13,8 @@
 | Bilstm | Google-w2v | Tokens, Deps | 0.71 | 0.6 | 0.65 |
 | Bilstm | Self trained | Tokens | 0.74 | 0.60 | 0.66 |
 
-Upcomming
----------
+--
+-----
 
 | Model | W2V | Feats | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
@@ -32,10 +34,12 @@ Upcomming
 | SADE | Glove vector |Tokens, Deps, POS | 0.77 | 0.67 | 0.715 |
 | SADE | Glove vector |Tokens, Deps, POS + PUNCT | 0.795 | 0.625 | 0.70 |
 
+--
+----
 
 | Model | W2V | Feat | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
-| Bilstm | Glove vector |Tokens, POS | | | |
+| Bilstm | Glove vector |Tokens, POS | 0.755 | 0.625 | 685 |
 | Bilstm | Glove vector |Tokens, POS + PUNCT | | | |
-| SADE | Glove vector |Tokens, POS | | | |
-| SADE | Glove vector |Tokens, POS + PUNCT | | | |
+| SADE | Glove vector |Tokens, POS | 0.74 | 0.655 | 0.69 |
+| SADE | Glove vector |Tokens, POS + PUNCT | 0.77 | 0.645 | 0.705 |
