@@ -38,7 +38,17 @@
 
 | Model | W2V | Feat | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
-| Bilstm | Glove vector |Tokens, POS | 0.755 | 0.625 | 685 |
+| Bilstm | Glove vector |Tokens, POS | 0.755 | 0.625 | 0.685 |
 | Bilstm | Glove vector |Tokens, POS + PUNCT | 0.765 | 0.645 | 0.695 |
 | SADE | Glove vector |Tokens, POS | 0.74 | 0.655 | 0.69 |
 | SADE | Glove vector |Tokens, POS + PUNCT | 0.77 | 0.645 | 0.705 |
+
+
+# Our model
+
+| Model | W2V | Feat | Precision | Recall | F1-Score |
+|-------|:---------:|:---------:|:---------:|:---------:|:---------:|
+| Ours | Glove vector |Tokens, POS + PUNCT | 0.77 | 0.645 | 0.7 |
+| Ours | Glove vector |Tokens, Deps, POS + PUNCT | 0.75 | 0.635 | 0.686 |
+| Ours | Google-w2v |Tokens, POS + PUNCT | 0.71 | 0.71 | 0.71 |
+| Ours | Google-w2v |Tokens, Deps, POS + PUNCT | 0.74 | 0.70 | 0.72 |
