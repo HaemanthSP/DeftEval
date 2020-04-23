@@ -38,7 +38,8 @@ def encode_X_words(dataset, metadata):
 	X=[]
 
 	# Unpack metadata
-	maxlen, vocab2id, _, _, _, = metadata
+	maxlen = metadata[0]
+	vocab2id = metadata[1]
 
 	for sent in tqdm(dataset.instances):
 		tokens = [token.orth_.lower() for token in sent]
@@ -54,7 +55,8 @@ def encode_X_pos(dataset, metadata, include_punct=True):
 	X=[]
 
 	# Unpack metadata
-	maxlen, _, _, pos2id, _ = metadata
+	maxlen = metadata[0]
+	pos2id = metadata[3]
 
 	for sent in tqdm(dataset.instances):
 		pos_tags = [tok.pos_ if tok.pos_ != "PUNCT" or not include_punct else tok.text for tok in sent]
@@ -178,16 +180,12 @@ def codalab_evaluation(data_dir, out_dir, model_path, embedding_data=None, embed
 
 
 if __name__ == '__main__':
-	# sys.argv = ['./task1.py',
-				# '-wv', '..\\resources\\glove.840B.300d.metadata',
-				# '-wv', 'C:\\Users\\shadeMe\\Documents\\ML\\Embeddings\\eng\\glove.840B.300d.w2v.txt',
-				# '-dep', 'ml',
-				# '-p', '..\\resources\\cnn_glove']
 
 	parser = ArgumentParser()
 	parser.add_argument('-wv', '--word-vectors', help='Vector file with words')
 	parser.add_argument('-p', '--path', help='Use or save keras model', required=True)
 	parser.add_argument('-e', '--eval', help='Evaluate the model', default=False, type=bool)
+	parser.add_argument('-d', '--deps', help='Use dependency relations', default=False, type=bool)
 
 	args = vars(parser.parse_args())
 
@@ -197,9 +195,11 @@ if __name__ == '__main__':
 	outpath=args['path']
 	os.makedirs(os.path.dirname(outpath), exist_ok=True)
 
+	DEPS = args['deps']
+
 	# Load embedding
 	embeddings=args['word_vectors']
-	# w2v_model,w2v_vocab,w2v_dim=_data_manager.load_embeddings(embeddings)
+	w2v_model,w2v_vocab,w2v_dim=_data_manager.load_embeddings(embeddings)
 
 	if args['eval']:
 		# evaluate()
@@ -279,61 +279,64 @@ if __name__ == '__main__':
 	print("POS vocab size: ", len(id2pos))
 	print("Dep vocab size: ", len(id2dep))
 
-	# metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos, dep2id, id2dep, dep_maxlen
-	metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos
+	if DEPS:
+		metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos, dep2id, id2dep, dep_maxlen
+	else:
+		metadata = maxlen, vocab2id, id2vocab, pos2id, id2pos
+
 	X_train_word = encode_X_words(deft, metadata)
-	# X_train_pos = encode_X_pos(deft, metadata)
-	# X_train_head, X_train_modifier, X_train_deps = encode_X_deps(deft, metadata)
-	X_train_word, y_train = shuffle(X_train_word, y_deft, random_state=0)
-	# X_train_word, X_train_pos, y_train = shuffle(X_train_word, X_train_pos, y_deft, random_state=0)
-	# X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_train = shuffle(
-		# X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_deft, random_state=0)
+	X_train_pos = encode_X_pos(deft, metadata)
+
+	if DEPS:
+		X_train_head, X_train_modifier, X_train_deps = encode_X_deps(deft, metadata)
+		X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_train = shuffle(
+			X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_deft, random_state=0)
+	else:
+		X_train_word, X_train_pos, y_train = shuffle(X_train_word, X_train_pos, y_deft, random_state=0)
 
 	print("\n\n\ntraining shape: ", X_train_word.shape)
 	print("data sample: ", X_train_word[0])
 
 	print('Vectorizing deft_dev')
 	X_test_word = encode_X_words(deft_dev, metadata)
-	# X_test_pos = encode_X_pos(deft_dev, metadata)
-	# X_test_head, X_test_modifier, X_test_deps = encode_X_deps(deft_dev, metadata)
+	X_test_pos = encode_X_pos(deft_dev, metadata)
+	if DEPS:
+		X_test_head, X_test_modifier, X_test_deps = encode_X_deps(deft_dev, metadata)
+
 	y_test = y_deft_dev
 
 	early_stopping_callback = EarlyStopping(
         # monitor='val_F1Score', min_delta=0.0001, patience=10, restore_best_weights=True)
         monitor='val_loss', min_delta=0.001, patience=10, restore_best_weights=True)
 
-	X_train_word, X_valid_word, y_train, y_valid = train_test_split(X_train_word, y_train, test_size=0.10, random_state=42)
-	# X_train_word, X_valid_word, X_train_pos, X_valid_pos, y_train, y_valid = train_test_split(X_train_word, X_train_pos, y_train, test_size=0.10, random_state=42)
-	# X_train_word, X_valid_word, X_train_pos, X_valid_pos, X_train_head, X_valid_head, X_train_modifier, X_valid_modifier, X_train_deps, X_valid_deps, y_train, y_valid = train_test_split(X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_train, test_size=0.10, random_state=42)
-
-	# valid_inps = [X_valid_word, X_valid_pos, X_valid_head, X_valid_modifier, X_valid_deps]
-	# train_inps = [X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps]
-	# test_inps = [X_test_word, X_test_pos, X_test_head, X_test_modifier, X_test_deps]
-
-	# valid_inps = [X_valid_word, X_valid_pos]
-	# train_inps = [X_train_word, X_train_pos]
-	# test_inps = [X_test_word, X_test_pos]
-
-	valid_inps = X_valid_word
-	train_inps = X_train_word
-	test_inps = X_test_word
+	if DEPS:
+		X_train_word, X_valid_word, X_train_pos, X_valid_pos, X_train_head, X_valid_head, X_train_modifier, X_valid_modifier, X_train_deps, X_valid_deps, y_train, y_valid = train_test_split(X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps, y_train, test_size=0.10, random_state=42)
+		valid_inps = [X_valid_word, X_valid_pos, X_valid_head, X_valid_modifier, X_valid_deps]
+		train_inps = [X_train_word, X_train_pos, X_train_head, X_train_modifier, X_train_deps]
+		test_inps = [X_test_word, X_test_pos, X_test_head, X_test_modifier, X_test_deps]
+	else:
+		X_train_word, X_valid_word, X_train_pos, X_valid_pos, y_train, y_valid = train_test_split(X_train_word, X_train_pos, y_train, test_size=0.10, random_state=42)
+		valid_inps = [X_valid_word, X_valid_pos]
+		train_inps = [X_train_word, X_train_pos]
+		test_inps = [X_test_word, X_test_pos]
 
 	print("Validation Inputs")
 	print(valid_inps)
 	print("\n\n")
 	# Build the embedding matrix 
-	# embedding_weights = [w2v_model[id2vocab[idx]] if id2vocab[idx] in w2v_vocab else np.zeros(w2v_dim)
-						#  for idx in range(len(id2vocab))]
-	# embedding_weights = np.array(embedding_weights, dtype='float32')
-	# print("Shape of the embedding: ", embedding_weights.shape)
+	embedding_weights = [w2v_model[id2vocab[idx]] if id2vocab[idx] in w2v_vocab else np.zeros(w2v_dim)
+						 for idx in range(len(id2vocab))]
+	embedding_weights = np.array(embedding_weights, dtype='float32')
+	print("Shape of the embedding: ", embedding_weights.shape)
 
+	if DEPS:
+		nnmodel=_data_manager.build_model3([maxlen, dep_maxlen], embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos), len(id2dep)])
+	else:
+		nnmodel=_data_manager.build_model2(maxlen, embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos)])
+	# nnmodel=_data_manager.build_baseline_bilstm(maxlen, vocab_size=len(id2vocab))
 	# nnmodel=_data_manager.build_model(X_train,y_train,"cnn",lstm_units=100, embedding_weights=embedding_weights, vocab_size=len(id2vocab))
-	# nnmodel=_data_manager.build_model2(maxlen, embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos)])
-	nnmodel=_data_manager.build_baseline_bilstm(maxlen, vocab_size=len(id2vocab))
-	# nnmodel=_data_manager.build_model3([maxlen, dep_maxlen], embedding_weights=[embedding_weights, None], vocab_size=[len(id2vocab), len(id2pos), len(id2dep)])
 	gc.collect()
 
-	# nnmodel.fit([X_train_word, X_train_pos], y_train,epochs=25,batch_size=128,validation_data=[[X_valid_word, X_valid_pos], y_valid], callbacks=[early_stopping_callback], class_weight=_data_manager.calculate_class_weights(y_train))
 	nnmodel.fit(train_inps,
 			    y_train,
 				epochs=100,
@@ -356,12 +359,12 @@ if __name__ == '__main__':
 	print(classification_report(y_test, preds))
 
 	# Evaluate validation data
-	predictions2 = nnmodel.predict_on_batch(valid_inps)
-	preds2=np.array([1 if i[0]>0.5 else 0 for i in predictions2], dtype='float32')
-	print("Confusion Matrix valid")
-	print(confusion_matrix(preds2, y_valid))
-	from sklearn.metrics import classification_report
-	print(classification_report(y_valid, preds2))
+	# predictions2 = nnmodel.predict_on_batch(valid_inps)
+	# preds2=np.array([1 if i[0]>0.5 else 0 for i in predictions2], dtype='float32')
+	# print("Confusion Matrix valid")
+	# print(confusion_matrix(preds2, y_valid))
+	# from sklearn.metrics import classification_report
+	# print(classification_report(y_valid, preds2))
 
 	# Analyse the output of the eval
 	# evaluate('../task1_data/dev_combined.deft', outpath)
