@@ -4,6 +4,14 @@
 
 --
 ----
+Without any token embeddings:
+
+| Model |  Feats | Precision | Recall | F1-Score |
+|-------|:---------:|:---------:|:---------:|:---------:|
+| Bilstm |POS, Deps | 0.56 | 0.75 | 0.64 |
+
+--
+-----
 
 | Model | W2V | Feats | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
@@ -11,6 +19,7 @@
 | SADE | Google-w2v | Tokens, Deps | 0.72 | 0.58 | 0.64 |
 | Bilstm | Glove vector | Tokens, Deps | 0.74 | 0.63 | 0.68 |
 | Bilstm | Google-w2v | Tokens, Deps | 0.71 | 0.6 | 0.65 |
+
 
 --
 -----
