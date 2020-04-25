@@ -49,6 +49,6 @@
 | Model | W2V | Feat | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
 | Ours | Glove vector |Tokens, POS + PUNCT | 0.77 | 0.645 | 0.7 |
-| Ours | Glove vector |Tokens, Deps, POS + PUNCT | 0.75 | 0.635 | 0.686 |
-| Ours | Google-w2v |Tokens, POS + PUNCT | 0.71 | 0.71 | 0.71 |
-| Ours | Google-w2v |Tokens, Deps, POS + PUNCT | 0.74 | 0.70 | 0.72 |
+| Ours | Glove vector |Tokens, Deps, POS + PUNCT | 0.75 | 0.705 | 0.73 |
+| Ours | Google-w2v |Tokens, POS + PUNCT | 0.76 | 0.62 | 0.685 |
+| Ours | Google-w2v |Tokens, Deps, POS + PUNCT | 0.79 | 0.615 | 0.69 |
