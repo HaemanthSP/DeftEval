@@ -48,7 +48,70 @@
 
 | Model | W2V | Feat | Precision | Recall | F1-Score |
 |-------|:---------:|:---------:|:---------:|:---------:|:---------:|
-| Ours | Glove vector |Tokens, POS + PUNCT | 0.77 | 0.645 | 0.7 |
-| Ours | Glove vector |Tokens, Deps, POS + PUNCT | 0.75 | 0.705 | 0.73 |
-| Ours | Google-w2v |Tokens, POS + PUNCT | 0.76 | 0.62 | 0.685 |
-| Ours | Google-w2v |Tokens, Deps, POS + PUNCT | 0.79 | 0.615 | 0.69 |
+| Ours - I | Glove vector |Tokens, POS + PUNCT | 0.77 | 0.645 | 0.7 |
+| Ours - II | Glove vector |Tokens, Deps, POS + PUNCT | 0.75 | 0.705 | 0.73 |
+| Ours - I | Google-w2v |Tokens, POS + PUNCT | 0.76 | 0.62 | 0.685 |
+| Ours - II | Google-w2v |Tokens, Deps, POS + PUNCT | 0.79 | 0.615 | 0.69 |
+
+
+# Points to note:
+
+* Only the successful variations are retained in the following experiments
+* Glove seems to give a boost that Google-w2v in all cases
+* Use of actual Punctutation instead of just "PUNCT" pos tag. Helps in most cases. (Shows the dependece of definition on punctuations)
+* Use of dependency features has a positive effect on the results (reasonable)
+* Pre-trained embedding performs better than the self trained.
+* Feature extraction from the dependency relation independent of the word feature has positive effect (intuitively)
+
+
+# Model description
+
+Ours - I : (_data_manager.py:144 build_model2)
+==========
+
+
+This archetecture takes two inputs:
+Input 1: Tokens
+Input 2: Any Word level feature (eg. POS)
+
+For Input-1: use pre trained embedding
+For Input-2: Embedding is learned on the fly
+
+Embedding of Input-1 and Input-2 are concatenated at word level
+
+Followed by 2 units of feature extraction combo
+
+each unit contains
+    Bilstm
+    Conv
+    Maxpool
+
+Later, flattened and fed to a classifier layer through a fully connected layer.
+
+
+Ours - II: (_data_manager.py:87 build_model3)
+==========
+
+
+This archetecture takes five inputs:
+
+word level:
+Input 1: Tokens
+Input 2: Any Word level feature (eg. POS)
+
+len(Input 1) == len(Input 2)
+
+Sentence level(dep relation):
+Input 3: Head words
+Input 4: Modifier words
+Input 5: dependency labels
+
+len(Input 3) == len(Input 4) == len(Input 5)
+
+Feature extraction from Input 1 and Input 2 are same as Ours - I
+
+Where as,
+Feature extraction from other inputs are slightly different.
+Bilstm layers are skipped. as the dependency relations are sequentialy independent.
+
+After the feature extraction. Hidden representations from both the track are concatenated and rest is similar to Ours - I
