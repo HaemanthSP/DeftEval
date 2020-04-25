@@ -115,3 +115,44 @@ Feature extraction from other inputs are slightly different.
 Bilstm layers are skipped. as the dependency relations are sequentialy independent.
 
 After the feature extraction. Hidden representations from both the track are concatenated and rest is similar to Ours - I
+
+
+Adv
+---
+
+* Processing(feature extration) wordlevel(tokens, pos) and sentence level features(dependency relations) seperately. and combinig them at higher level
+* SADE uses (convolution, maxpooling), ours uses (Bilstm, conv, maxpooling). Usage of bilstm before conv to make use of the sequential information(sentence).
+* Bilstm is not used processing dependency relations in Ours - II. As the dependency relations are sequentialy independent of each other.
+
+# Points to note 2
+
+Epochs: 100
+Early stopping: patience: 10; monitor: val_loss
+batch size: 128
+loss: Binary cross entropy
+optimizer: Adam
+
+Data split:
+test data: 10% of all data
+validation data: 10% of train
+
+W2V embedding dimension: 300
+Raw vocab size = 26k
+* Vocab size of 26k from 17k samples is too high
+Reasons for vocabulary explosion:
+1. Lots of urls
+2. Numbers like values and years
+3. Strange alpha numeric combination due to noise in text
+4. Improperly parsed word due to irregular use of Punctuations
+5. Lack of space around "+ - \} \{ \) \( \[ \] = /" etc.. causes bad tokens
+
+Ambiguity:
+Some definition of definitions are not so clear
+* " Organisms are individual living entities ." 1 : This is a definition
+* " Organelles are small structures that exist within cells ." 0 : this is not a definition
+* " 149 . Nucleic acids are the most important macromolecules for the continuity of life ."	"0"
+* " They carry the genetic blueprint of a cell and carry instructions for the functioning of the cell ."	"1"
+* " 4888 . Recall from The Macroeconomic Perspective that if exports exceed imports , the economy is said to have a trade surplus ."	"0"
+* " If imports exceed exports , the economy is said to have a trade deficit ."	"1"
+* " 4918 . To build a useful macroeconomic model , we need a model that shows what determines total supply or total demand for the economy , and how total demand and total supply interact at the macroeconomic level ."	"1"
+* " 221 . However , the cell membrane detaches from the wall and constricts the cytoplasm ."	"1"
