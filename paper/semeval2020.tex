@@ -236,7 +236,7 @@ to learn a representation that composes both token and sentence-level features i
 	\label{fig:final_model}
 \end{figure}
 
-Our final architecture is informed by the findings of our previous experiments. It accepts five inputs: At the token-level, both  token
+Our final architecture is informed by the findings of our previous experiments. It accepts three inputs: At the token-level, both  token
 and part-of-speech tags (w/t punctuation) are used. Pre-trained GloVe embeddings are used for tokens, while embeddings for POS tags
 are learned on-the-fly. The concatenation of both embeddings is passed through two "feature extraction units" that consist of a
 BiLSTM (to target sequence/global information) and a 1D-Conv + MaxPool layer (to target local information). At sentence-level,
@@ -274,7 +274,7 @@ The model achieved a best F1-score of $0.76$ during development.
 
 \section{Results \& Discussion}
 The final model achieved a positive-class F1-score of $0.6851$, ranking 47th out of 56 submissions for the first subtask. While the
-model under-performed in a substantial departure from our expectations, we identified multiple factors that may have contributed to
+model under-performed in a substantial departure from our expectations, we identified factors that may have contributed to
 it\footnote{Since the gold-standard data for the test set was not available at the time of publication, we based our statements on
 our analysis of the training corpus and the prediction results of the test data.}. During training, we noticed that the number of
 unique terms in the preprocessed corpus out-stripped the number of training samples (over 21K unique tokens in approx. 17K
@@ -291,9 +291,6 @@ latter was not. Another similar albeit more ambiguous example: \emph{"Recall fro
 ambiguities can be attributed to how the training data for the binary classification task is generated from the larger sequence-annotated
 corpus, there are many other counter-examples where the rationale behind the annotation is unclear. Such incongruities ultimately
 make it more challenging for the model to attain a clear and optimal generalization.\\
-
-And finally, on perhaps a more mundane note, real-world issues such as confusing instructions from the task organizers and
-unreliable testing/submission infrastructure unfortunately also contributed to a less-than-optimal evaluation phase for our team.
 
 
 \section{Conclusion}
