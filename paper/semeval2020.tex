@@ -33,7 +33,6 @@
 \hyphenation{an-aly-sis}
 \hyphenation{an-aly-ses}
 \hyphenation{Sem-Eval}
-\renewcommand*{\arraystretch}{1.5}
 %\setlength\titlebox{5cm}
 \colingfinalcopy % Uncomment this line for all SemEval submissions
 
@@ -72,6 +71,7 @@ Definition Extraction using pre-BERT Methods in a post-BERT World}
   achieved a F1 score of 0.6851 in subtask 1.
 \end{abstract}
 
+\renewcommand*{\arraystretch}{1.25}
 
 \section{Introduction}
 
@@ -180,20 +180,21 @@ state-of-the-art results on the WCL and W00 datasets \cite{navigli2010learning,j
 
 
 \section{System Overview}
-\subsection{Baseline Experiments}
+\subsection{Baseline}
 We developed and iterated over both LSTM-based \cite{hochreiter1997long} recurrent and convolutional \cite{o2015introduction}
 neural network models. Our baseline RNN architecture is a network of a single bidirectional LSTM layer followed by two feed-forward layers (w/t Dropout) and a final sigmoid-activated read-out layer. This architecture is implemented by model \emph{BL-RNN}
 whose input layer accepts sequences of features vectors. Our baseline hybrid-CNN architecture is implemented by model
 \emph{BL-CNN} that is based on the work by \newcite{anke2018syntactically}. It accepts feature vector
 sequences that are passed through a one-dimensional convolutional filter and a max-pooling layer, followed by a BiLSTM and read-out
-layer. The intuition behind combining convolutional and recurrent layers is to leverage the implicit local feature-extraction performed by the convolutional layers to refine the final representation passed to the recurrent layer, which then accounts for global features.\\
+layer. The intuition behind combining convolutional and recurrent layers is to leverage the implicit local feature-extraction performed by the convolutional layers to refine the final representation passed to the recurrent layer, which then accounts for global features. The input sequences are composed as concatenations of vectors of individual features at the token level,
+resulting in a homogenous representation, e.g. each token is encoded as the concatenation of a $n$-dimensional word vector,
+a $m$-dimensional one-hot encoded POS tag vector, etc.\\
 
 We conducted several experiments with the above two architectures and iterated over successful models. Training data was split into 90-10 train-test data splits.
 10\% of the train data split was used for validation. All models were trained for 100 epochs with an early-stopping mechanism
 that monitored the validation loss over the last 10 epochs. Batch size was set to 128, and ADAM \cite{kingma2014adam} was used
 as the binary cross-entropy optimizer. URLs were stripped from token sequences as a preprocessing step. The results of our experiments are listed in table \ref{tab:baseline-experiments}. All experiments were carried out multiple times; the reported
 figures were averaged over three iterations.\\
-
 
 \begin{table}[]
   \centering
@@ -222,7 +223,7 @@ figures were averaged over three iterations.\\
   \label{tab:baseline-experiments}
 \end{table}
 
-
+\subsection{Influence of Semantic Information}
 Our initial experiments were premised on the hypothesis that neural definition extraction can be modelled on primarily
 morphosyntactic features while excluding or restricting the use of semantic and lexical information. By limiting the influence
 of semantics, we expected to train a model that generalized well over multiple domains by virtue of being less susceptible to
@@ -234,23 +235,25 @@ and Google News corpora respectively.}. The results proved our hypothesis to be 
 information provided by the word embeddings consistently out-performed our syntax-only model. This result also carried over to the
 hybrid-CNN models. Overall, we found that models trained with GloVe embeddings to be more performant than those trained with w2v.\\
 
-Build upon the results of the previous experiments, we tested the effect of combining punctuation and part-of-speech tags. It
+\subsection{Feature Modelling}
+Building upon the findings of the previous experiments, we tested the effect of combining punctuation and part-of-speech tags. It
 was immediately evident that replacing the \emph{PUNCT} POS tag with the punctuation character occurring at that position had a
 positive effect on the model's performance. Beyond the implicit increase in information offered by the actual character, it
 also reaffirms the importance of syntactic features in this task. The addition of dependency relation features, however, has a less
 immediately-obvious impact. The RNN model sees a reduction in performance while the hybrid-CNN model fares better. Upon further
-investigation, we determined that encoding dependency information at sentence-level as opposed to word-level yields better
-performance.
-
+investigation, we determined that the input encoding scheme's attempt to homogenize feature vectors across disparate features, viz.,
+combining sequential (token-level) features (token, POS) with non-sequential (sentence-level) features (dependencies), which
+hindered the recurrent model from optimally exploiting the former. With this key insight, we were able to rearchitect our model
+to learn a representation that composes both token and sentence-level features in an efficient way.
 
 \subsection{Final Architecture}
-Our final architecture is informed by the results of our previous experiments. It accepts five inputs: At word-level, both token
+Our final architecture is informed by the findings of our previous experiments. It accepts five inputs: At the token-level, both  token
 and part-of-speech tags (w/t punctuation) are used. Pre-trained GloVe embeddings are used for tokens, while embeddings for POS tags
 are learned on-the-fly. The concatenation of both embeddings is passed through two "feature extraction" units that consist of a
 BiLSTM (to target sequence/global information), and a 1D-Conv + MaxPool layer (to target local information). At sentence-level,
 dependency information is encoded as the concatenation of the embeddings of the head, modifier and dependency label of each relation.
 This is connected to two stripped-down "feature extraction" units without the BiLSTM layer, since dependency relations are
-sequentially independent. Finally, the extracted representations of both word- and sentence-level features are concatenated and
+sequentially independent. Finally, the extracted representations of both token- and sentence-level features are concatenated and
 connected to a feed-forward layer and a read-out layer.\\
 
 The above architecture's separation of feature-extraction at token and sentential levels allows their information to be combined
@@ -258,7 +261,31 @@ at a higher level in the network. And we indeed see a marked improvement when th
 The model achieved a best F1-score of $0.76$ during development.
 
 
+\begin{table}[]
+  \centering
+  \resizebox{3.5in}{!}{%
+  \begin{tabular}{@{}llcc@{}}
+  \toprule
+  \multicolumn{2}{c}{\multirow{2}{*}{Hyperparameter}} & \multicolumn{2}{c}{Value} \\
+  \multicolumn{2}{c}{} & Token-Level & Sentence-Level \\ \midrule
+  \multirow{3}{*}{\begin{tabular}[c]{@{}l@{}}Embeddings\\ Dim\end{tabular}} & Word & \multicolumn{2}{c}{300} \\
+   & POS & \multicolumn{2}{c}{32} \\
+   & Dep. Label & \multicolumn{2}{c}{32} \\
+  \multirow{4}{*}{\begin{tabular}[c]{@{}l@{}}Feature Extractor \\ Units\\ (Unit 1, Unit 2)\end{tabular}} & LSTM Units & 128, 64 & - \\
+   & Conv. Filters & 128, 64 & 64, 32 \\
+   & Conv. Kernel Size & \multicolumn{2}{c}{3, 3} \\
+   & MaxPooling Pool Size & \multicolumn{2}{c}{2, 2} \\
+  \multicolumn{2}{l}{L2 Regularizer Beta} & \multicolumn{2}{c}{0.001} \\
+  \multicolumn{2}{l}{Feed-forward Layer Units} & \multicolumn{2}{c}{24} \\ \bottomrule
+  \end{tabular}%
+  }
+  \caption{Hyperparameters for the final model}
+  \label{tab:final-hyperparameters}
+\end{table}
+
+
 \section{Evaluation \& Results}
+
 
 
 \section{Conclusion}
