@@ -28,10 +28,12 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{courier}
+\usepackage{multirow}
 
 \hyphenation{an-aly-sis}
 \hyphenation{an-aly-ses}
 \hyphenation{Sem-Eval}
+\renewcommand*{\arraystretch}{1.5}
 %\setlength\titlebox{5cm}
 \colingfinalcopy % Uncomment this line for all SemEval submissions
 
@@ -178,34 +180,82 @@ state-of-the-art results on the WCL and W00 datasets \cite{navigli2010learning,j
 
 
 \section{System Overview}
-We developed and iterated over multiple LSTM-based recurrent neural network models \cite{hochreiter1997long}. As our baseline,
-we designated a model with a single bidirectional LSTM layer followed by two feed-forward layers and a final sigmoid read-out layer.
-Token sequences were extracted from the training data's source sentences and passed as inputs to an embedding lookup layer, whose
-embeddings were used as inputs to the LSTM layer.\\
+\subsection{Baseline Experiments}
+We developed and iterated over both LSTM-based \cite{hochreiter1997long} recurrent and convolutional \cite{o2015introduction}
+neural network models. Our baseline RNN architecture is a network of a single bidirectional LSTM layer followed by two feed-forward layers (w/t Dropout) and a final sigmoid-activated read-out layer. This architecture is implemented by model \emph{BL-RNN}
+whose input layer accepts sequences of features vectors. Our baseline hybrid-CNN architecture is implemented by model
+\emph{BL-CNN} that is based on the work by \newcite{anke2018syntactically}. It accepts feature vector
+sequences that are passed through a one-dimensional convolutional filter and a max-pooling layer, followed by a BiLSTM and read-out
+layer. The intuition behind combining convolutional and recurrent layers is to leverage the implicit local feature-extraction performed by the convolutional layers to refine the final representation passed to the recurrent layer, which then accounts for global features.\\
 
-To experiment with multiple features, we developed a non-sequential model that
-extracted and learned representations for each type of feature. The concatenated representation of the feature embeddings was then
-fed as input to a BiLSTM layer followed by a feed-forward network.\\
-
-Finally, we also experimented with a hybrid-approach of using
-convolutional layers in addition to the recurrent layers. To this end, we augmented the previous architecture by interspersing
-single-dimensional convolution and max-pooling layers over the concatenated feature representation. The intuition behind this step
-was to leverage the implicit feature-extraction performed by the convolutional layers to refine the final representation passed to
-the recurrent layer.
-
-
-\subsection{Features}
-Beyond using word tokens, we experimented with different types of input primitives to bolster the informativity of the learned
-feature vectors. As evidenced by previous approaches, the task of definition extraction benefits from the incorporation of syntactic
-information. To facilitate this, we tested our models with part-of-speech tags, dependency labels, and head-modifiers as inputs
-(individually and combined).\\
-
-We also tested the impact of punctuations and frequency constraints on all input primitives.
-Furthermore, to imbue the model with semantic and lexical information, pre-trained embeddings were used to initialise the embedding
-matrices of word tokens. For this, GloVe \cite{pennington2014glove} and word2vec \cite{mikolov2013efficient} word embeddings were used.
+We conducted several experiments with the above two architectures and iterated over successful models. Training data was split into 90-10 train-test data splits.
+10\% of the train data split was used for validation. All models were trained for 100 epochs with an early-stopping mechanism
+that monitored the validation loss over the last 10 epochs. Batch size was set to 128, and ADAM \cite{kingma2014adam} was used
+as the binary cross-entropy optimizer. URLs were stripped from token sequences as a preprocessing step. The results of our experiments are listed in table \ref{tab:baseline-experiments}. All experiments were carried out multiple times; the reported
+figures were averaged over three iterations.\\
 
 
-\subsection{Experiments}
+\begin{table}[]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{@{}llclccr@{}}
+  \toprule
+  Experiment & Model & Word Embeddings & Features & Precision & Recall & F1-Score \\ \midrule
+  \begin{tabular}[c]{@{}l@{}}1. W/o Semantic\\     Information\end{tabular} & BL-RNN & - & POS + Deps & 0.56 & 0.75 & 0.64 \\ \midrule
+  \multirow{4}{*}{\begin{tabular}[c]{@{}l@{}}2. W/t Semantic\\     Information\end{tabular}} & \multirow{2}{*}{BL-RNN} & Glove & \multirow{4}{*}{Tokens + Deps} & 0.74 & 0.63 & \textbf{0.68} \\
+   &  & w2v &  & 0.71 & 0.60 & 0.65 \\
+   & \multirow{2}{*}{BL-CNN} & Glove &  & 0.72 & 0.62 & \textbf{0.67} \\
+   &  & w2v &  & 0.72 & 0.58 & 0.64 \\ \midrule
+  \multirow{8}{*}{\begin{tabular}[c]{@{}l@{}}3. Effect of punctuation \&\\     dependency relations\end{tabular}} & \multirow{4}{*}{BL-RNN} & \multirow{8}{*}{Glove} & Tokens + POS & 0.75 & 0.62 & 0.68 \\
+   &  &  & Tokens + Deps + POS & 0.76 & 0.58 & 0.66 \\
+   &  &  & Tokens + POS + Punct & 0.76 & 0.64 & \textbf{0.69} \\
+   &  &  & Tokens + Deps + POS + Punct & 0.76 & 0.62 & 0.68 \\
+   & \multirow{4}{*}{BL-CNN} &  & Tokens + POS & 0.74 & 0.65 & 0.69 \\
+   &  &  & Tokens + Deps + POS & 0.77 & 0.67 & \textbf{0.71} \\
+   &  &  & Tokens + POS + Punct & 0.77 & 0.64 & 0.70 \\
+   &  &  & Tokens + Deps + POS + Punct & 0.79 & 0.62 & 0.70 \\ \midrule
+  \multirow{2}{*}{4. Final Model} & \multirow{2}{*}{FINAL-HYBRID} & \multirow{2}{*}{Glove} & Tokens + POS + Punct & 0.77 & 0.64 & 0.70 \\
+   &  &  & Tokens + Deps + POS + Punct & 0.75 & 0.70 & \textbf{0.73} \\ \bottomrule
+  \end{tabular}%
+  }
+  \caption{Results of experiments performed on the baseline \& final models.}
+  \label{tab:baseline-experiments}
+\end{table}
+
+
+Our initial experiments were premised on the hypothesis that neural definition extraction can be modelled on primarily
+morphosyntactic features while excluding or restricting the use of semantic and lexical information. By limiting the influence
+of semantics, we expected to train a model that generalized well over multiple domains by virtue of being less susceptible to
+lexical cues that could potentially act as distractors. To test this, we trained the RNN model on a concatenation of
+part-of-speech tag and dependency relation sequences. Similarly, two more RNN models were trained on word embedding and dependency
+relation sequences, their word embedding matrix initialized with 300-dimensional pre-trained GloVe \cite{pennington2014glove} and
+word2vec \cite{mikolov2013efficient} embeddings respectively\footnote{The GloVe and w2v embeddings were trained on the Common Crawl
+and Google News corpora respectively.}. The results proved our hypothesis to be flawed, as the models enriched with semantic
+information provided by the word embeddings consistently out-performed our syntax-only model. This result also carried over to the
+hybrid-CNN models. Overall, we found that models trained with GloVe embeddings to be more performant than those trained with w2v.\\
+
+Build upon the results of the previous experiments, we tested the effect of combining punctuation and part-of-speech tags. It
+was immediately evident that replacing the \emph{PUNCT} POS tag with the punctuation character occurring at that position had a
+positive effect on the model's performance. Beyond the implicit increase in information offered by the actual character, it
+also reaffirms the importance of syntactic features in this task. The addition of dependency relation features, however, has a less
+immediately-obvious impact. The RNN model sees a reduction in performance while the hybrid-CNN model fares better. Upon further
+investigation, we determined that encoding dependency information at sentence-level as opposed to word-level yields better
+performance.
+
+
+\subsection{Final Architecture}
+Our final architecture is informed by the results of our previous experiments. It accepts five inputs: At word-level, both token
+and part-of-speech tags (w/t punctuation) are used. Pre-trained GloVe embeddings are used for tokens, while embeddings for POS tags
+are learned on-the-fly. The concatenation of both embeddings is passed through two "feature extraction" units that consist of a
+BiLSTM (to target sequence/global information), and a 1D-Conv + MaxPool layer (to target local information). At sentence-level,
+dependency information is encoded as the concatenation of the embeddings of the head, modifier and dependency label of each relation.
+This is connected to two stripped-down "feature extraction" units without the BiLSTM layer, since dependency relations are
+sequentially independent. Finally, the extracted representations of both word- and sentence-level features are concatenated and
+connected to a feed-forward layer and a read-out layer.\\
+
+The above architecture's separation of feature-extraction at token and sentential levels allows their information to be combined
+at a higher level in the network. And we indeed see a marked improvement when this model is trained with dependency information.
+The model achieved a best F1-score of $0.76$ during development.
 
 
 \section{Evaluation \& Results}
@@ -214,53 +264,11 @@ matrices of word tokens. For this, GloVe \cite{pennington2014glove} and word2vec
 \section{Conclusion}
 
 
+
 % include your own bib file like this:
 \bibliographystyle{coling}
 \bibliography{semeval2020}
 
-%\begin{thebibliography}{}
 
-%\bibitem[\protect\citename{Aho and Ullman}1972]{Aho:72}
-%Alfred~V. Aho and Jeffrey~D. Ullman.
-%\newblock 1972.
-%\newblock {\em The Theory of Parsing, Translation and Compiling}, volume~1.
-%\newblock Prentice-{Hall}, Englewood Cliffs, NJ.
-
-%\bibitem[\protect\citename{{American Psychological Association}}1983]{APA:83}
-%{American Psychological Association}.
-%\newblock 1983.
-%\newblock {\em Publications Manual}.
-%\newblock American Psychological Association, Washington, DC.
-
-%\bibitem[\protect\citename{{Association for Computing Machinery}}1983]{ACM:83}
-%{Association for Computing Machinery}.
-%\newblock 1983.
-%\newblock {\em Computing Reviews}, 24(11):503--512.
-
-%\bibitem[\protect\citename{Chandra \bgroup et al.\egroup }1981]{Chandra:81}
-%Ashok~K. Chandra, Dexter~C. Kozen, and Larry~J. Stockmeyer.
-%\newblock 1981.
-%\newblock Alternation.
-%\newblock {\em Journal of the Association for Computing Machinery},
-%  28(1):114--133.
-
-%\bibitem[\protect\citename{Gusfield}1997]{Gusfield:97}
-%Dan Gusfield.
-%\newblock 1997.
-%\newblock {\em Algorithms on Strings, Trees and Sequences}.
-%\newblock Cambridge University Press, Cambridge, UK.
-
-%\bibitem[\protect\citename{Rasooli and Tetreault}2015]{rasooli-tetrault-2015}
-%Mohammad~Sadegh Rasooli and Joel~R. Tetreault. 2015.
-%\newblock {Yara parser: {A} fast and accurate dependency parser}.
-%\newblock \emph{Computing Research Repository}, arXiv:1503.06733.
-%\newblock Version 2.
-
-%\bibitem[\protect\citename{Borschinger and Johnson}2011]{borsch2011}
-%Benjamin Borschinger and Mark Johnson. 2011.
-%\newblock A particle filter algorithm for {B}ayesian wordsegmentation.
-%\newblock In \emph{Proceedings of the Australasian Language Technology Association %Workshop 2011}, pages 10--18, Canberra, Australia.
-
-%\end{thebibliography}
 
 \end{document}
